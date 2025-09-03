@@ -89,27 +89,28 @@ export default function InvoiceGeneratorPage() {
     setInvoiceNumber(`INV-${Date.now().toString().slice(-6)}`);
   }, []);
 
-  const getItemTotal = (item: ItemFormData) => {
-      if (!item.grossWeight || !item.rate) return 0;
-      const baseAmount = item.grossWeight * item.rate;
-      let makingCharges = 0;
-      if (item.makingChargeType === 'percentage') {
-        makingCharges = baseAmount * (item.makingChargeValue / 100);
-        return (baseAmount + makingCharges) * item.qty;
-      } else if (item.makingChargeType === 'flat') {
-        makingCharges = item.makingChargeValue;
-        return (baseAmount * item.qty) + makingCharges;
-      } else if (item.makingChargeType === 'per_gram') {
-        makingCharges = item.grossWeight * item.makingChargeValue;
-        return (baseAmount + makingCharges) * item.qty;
-      }
+  const getItemTotal = (item: ItemFormData): number => {
+    if (!item.grossWeight || !item.rate) return 0;
+    const baseAmount = item.grossWeight * item.rate;
+    let makingCharges = 0;
+
+    if (item.makingChargeType === 'percentage') {
+      makingCharges = baseAmount * (item.makingChargeValue / 100);
       return (baseAmount + makingCharges) * item.qty;
-  }
+    } else if (item.makingChargeType === 'flat') {
+      makingCharges = item.makingChargeValue;
+      return (baseAmount * item.qty) + makingCharges;
+    } else if (item.makingChargeType === 'per_gram') {
+      makingCharges = item.grossWeight * item.makingChargeValue;
+      return (baseAmount + makingCharges) * item.qty;
+    }
+    return (baseAmount + makingCharges) * item.qty;
+  };
 
   const calculateTotals = () => {
     let subtotal = 0;
     watchedItems.forEach(item => {
-      subtotal += getItemTotal(item);
+      subtotal += getItemTotal(item as ItemFormData);
     });
 
     const gst = selectedCustomer?.gstin ? subtotal * 0.03 : 0;
@@ -224,7 +225,7 @@ export default function InvoiceGeneratorPage() {
                 <TableRow>
                   <TableHead className="w-[40px]">SN</TableHead>
                   <TableHead className="min-w-[150px]">Item Name</TableHead>
-                  <TableHead className="w-[120px]">Qty</TableHead>
+                  <TableHead className="w-[80px]">Qty</TableHead>
                   <TableHead className="min-w-[100px]">HSN</TableHead>
                   <TableHead className="min-w-[120px]">Gross Wt(g)</TableHead>
                   <TableHead className="min-w-[100px]">(Purity)</TableHead>
@@ -347,3 +348,5 @@ export default function InvoiceGeneratorPage() {
   );
 
 }
+
+    
