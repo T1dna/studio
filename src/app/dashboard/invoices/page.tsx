@@ -55,7 +55,6 @@ export default function InvoiceGeneratorPage() {
   const { toast } = useToast();
   const [invoiceDate, setInvoiceDate] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
-  const [selectedCustomer, setSelectedCustomer] = useState<(typeof mockCustomers)[0] | null>(null);
 
   const form = useForm<InvoiceFormData>({
     resolver: zodResolver(invoiceSchema),
@@ -82,21 +81,13 @@ export default function InvoiceGeneratorPage() {
   const watchedItems = watch('items');
   const watchedDiscount = watch('discount') || 0;
   const watchedCustomerId = watch('customerId');
+  
+  const selectedCustomer = mockCustomers.find(c => c.id === watchedCustomerId) || null;
 
   useEffect(() => {
     setInvoiceDate(new Date().toLocaleDateString('en-CA')); // YYYY-MM-DD format
     setInvoiceNumber(`INV-${Date.now().toString().slice(-6)}`);
   }, []);
-
-  useEffect(() => {
-    if (watchedCustomerId) {
-      const customer = mockCustomers.find(c => c.id === watchedCustomerId) || null;
-      setSelectedCustomer(customer);
-    } else {
-      setSelectedCustomer(null);
-    }
-  }, [watchedCustomerId]);
-
 
   const calculateTotals = () => {
     let subtotal = 0;
@@ -174,7 +165,7 @@ export default function InvoiceGeneratorPage() {
                 name="customerId"
                 control={control}
                 render={({ field }) => (
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select a customer" />
                     </SelectTrigger>
@@ -344,8 +335,5 @@ export default function InvoiceGeneratorPage() {
       </Card>
     </form>
   );
-}
-
-    
 
     
