@@ -114,7 +114,7 @@ export default function InvoiceGeneratorPage() {
   const { subtotal, gst, total } = calculateTotals();
 
   const onSubmit = (data: InvoiceFormData) => {
-    console.log({ ...data, subtotal, gst, total });
+    console.log({ ...data, subtotal, gst, total, invoiceNumber, invoiceDate });
     toast({
       title: "Invoice Generated!",
       description: "The invoice has been successfully created and logged.",
@@ -148,10 +148,26 @@ export default function InvoiceGeneratorPage() {
               <p>Phone: {mockBusinessDetails.phone}</p>
               {mockBusinessDetails.gstin && <p>GSTIN: {mockBusinessDetails.gstin}</p>}
             </div>
-            <div className="text-right">
-              <h2 className="text-xl font-semibold">Details</h2>
-              <p>Invoice #: {invoiceNumber}</p>
-              <p>Date: {new Date(invoiceDate).toLocaleDateString()}</p>
+            <div className="text-right space-y-2">
+                <div className="flex items-center justify-end gap-2">
+                    <Label htmlFor="invoiceNumber" className="text-right shrink-0">Invoice #:</Label>
+                    <Input 
+                        id="invoiceNumber"
+                        value={invoiceNumber}
+                        onChange={(e) => setInvoiceNumber(e.target.value)}
+                        className="w-40 text-right"
+                    />
+                </div>
+                <div className="flex items-center justify-end gap-2">
+                    <Label htmlFor="invoiceDate" className="text-right shrink-0">Date:</Label>
+                    <Input 
+                        id="invoiceDate"
+                        type="date"
+                        value={invoiceDate}
+                        onChange={(e) => setInvoiceDate(e.target.value)}
+                        className="w-40 text-right"
+                    />
+                </div>
             </div>
           </div>
         </CardHeader>
@@ -336,6 +352,6 @@ export default function InvoiceGeneratorPage() {
     </form>
   );
 
-    
+}
 
     
