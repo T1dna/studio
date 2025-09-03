@@ -22,9 +22,9 @@ interface InvoicesContextType {
 
 const InvoicesContext = createContext<InvoicesContextType | undefined>(undefined);
 
-const mockBusinessDetails = {
-  name: 'GemsAccurate Inc.',
-  address: '456 Gold Plaza, Jewel City',
+export const mockBusinessDetails = {
+  name: 'Bhagya Shree Jewellers',
+  address: 'JP Market, In Front of High School Gate No. 01, Bherunda (Nasrullaganj)',
   phone: '+91 9988776655',
   gstin: '29ABCDE1234F1Z5',
 };

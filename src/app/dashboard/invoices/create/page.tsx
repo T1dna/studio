@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PlusCircle, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useInvoices } from '@/contexts/invoices-context';
+import { useInvoices, mockBusinessDetails } from '@/contexts/invoices-context';
 import { useRouter } from 'next/navigation';
 
 // Mock Data
@@ -22,13 +22,6 @@ const mockCustomers = [
   { id: 'CUST-002', name: 'Priya Patel', address: '456 Ruby Lane, Mumbai', gstin: '' },
   { id: 'CUST-003', name: 'Amit Singh', address: '789 Emerald Road, Delhi', gstin: '07BBBBB0000B1Z4' },
 ];
-
-const mockBusinessDetails = {
-  name: 'GemsAccurate Inc.',
-  address: '456 Gold Plaza, Jewel City',
-  phone: '+91 9988776655',
-  gstin: '29ABCDE1234F1Z5',
-};
 
 // Zod Schema for validation
 const itemSchema = z.object({
@@ -59,11 +52,10 @@ const getItemTotal = (item: ItemFormData): number => {
     const grossWeight = Number(item.grossWeight);
     const makingChargeValue = Number(item.makingChargeValue);
 
-    // Defensive check to ensure all values are valid numbers before calculation
-    if (isNaN(qty) || isNaN(rate) || qty <= 0 || rate <= 0) {
+    if (isNaN(qty) || isNaN(rate)) {
       return 0;
     }
-
+    
     const baseAmount = qty * rate;
 
     switch (item.makingChargeType) {
@@ -74,7 +66,7 @@ const getItemTotal = (item: ItemFormData): number => {
         if (isNaN(makingChargeValue)) return baseAmount;
         return baseAmount + makingChargeValue;
       case 'per_gram':
-        if (isNaN(makingChargeValue) || isNaN(grossWeight) || grossWeight <= 0) return baseAmount;
+        if (isNaN(makingChargeValue) || isNaN(grossWeight)) return baseAmount;
         return baseAmount + (makingChargeValue * grossWeight * qty);
       default:
         return baseAmount;
