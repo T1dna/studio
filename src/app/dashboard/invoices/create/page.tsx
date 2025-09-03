@@ -13,6 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PlusCircle, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useInvoices } from '@/contexts/invoices-context';
+import { useRouter } from 'next/navigation';
 
 // Mock Data
 const mockCustomers = [
@@ -53,6 +55,8 @@ type ItemFormData = z.infer<typeof itemSchema>;
 
 export default function InvoiceGeneratorPage() {
   const { toast } = useToast();
+  const { addInvoice } = useInvoices();
+  const router = useRouter();
   const [invoiceDate, setInvoiceDate] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
 
@@ -133,12 +137,22 @@ export default function InvoiceGeneratorPage() {
   }, []);
   
   const onSubmit = (data: InvoiceFormData) => {
-    console.log({ ...data, subtotal, gst, total, invoiceNumber, invoiceDate });
+    const newInvoice = {
+        id: invoiceNumber,
+        customerName: selectedCustomer?.name || 'N/A',
+        date: invoiceDate,
+        amount: total,
+        status: 'Pending' as 'Paid' | 'Pending' | 'Overdue',
+        ...data,
+    };
+    addInvoice(newInvoice);
+
     toast({
       title: "Invoice Generated!",
-      description: "The invoice has been successfully created and logged.",
+      description: `Invoice ${invoiceNumber} has been successfully created.`,
     });
     form.reset();
+    router.push('/dashboard/invoices');
   };
   
 
@@ -358,3 +372,5 @@ export default function InvoiceGeneratorPage() {
     </form>
   );
 }
+
+    
