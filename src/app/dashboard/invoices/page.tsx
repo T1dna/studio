@@ -230,7 +230,7 @@ export default function InvoiceGeneratorPage() {
                 <TableRow>
                   <TableHead className="w-[40px]">SN</TableHead>
                   <TableHead className="min-w-[150px]">Item Name</TableHead>
-                  <TableHead className="w-[80px]">Qty</TableHead>
+                  <TableHead className="w-[120px]">Qty</TableHead>
                   <TableHead className="min-w-[100px]">HSN</TableHead>
                   <TableHead className="min-w-[120px]">Gross Wt(g)</TableHead>
                   <TableHead className="min-w-[100px]">Purity (%)</TableHead>
