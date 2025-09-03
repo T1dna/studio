@@ -35,16 +35,18 @@ import { useToast } from '@/hooks/use-toast';
 type Customer = {
   id: string;
   name: string;
-  email: string;
-  phone: string;
-  company: string;
+  fatherName: string;
+  businessName?: string;
+  address: string;
+  number: string;
+  gstin?: string;
 };
 
 const initialCustomers: Customer[] = [
-  { id: 'CUST-001', name: 'Rohan Sharma', email: 'rohan.sharma@example.com', phone: '9876543210', company: 'Sharma Gems' },
-  { id: 'CUST-002', name: 'Priya Patel', email: 'priya.patel@example.com', phone: '8765432109', company: 'Patel Diamonds' },
-  { id: 'CUST-003', name: 'Amit Singh', email: 'amit.singh@example.com', phone: '7654321098', company: 'Singh Jewels' },
-  { id: 'CUST-004', name: 'Sunita Williams', email: 'sunita.williams@example.com', phone: '6543210987', company: 'Galaxy Ornaments' },
+  { id: 'CUST-001', name: 'Rohan Sharma', fatherName: 'Rajesh Sharma', businessName: 'Sharma Gems', address: '123 Diamond Street, Jaipur', number: '9876543210', gstin: '08AAAAA0000A1Z5' },
+  { id: 'CUST-002', name: 'Priya Patel', fatherName: 'Mahesh Patel', businessName: 'Patel Diamonds', address: '456 Ruby Lane, Mumbai', number: '8765432109' },
+  { id: 'CUST-003', name: 'Amit Singh', fatherName: 'Suresh Singh', address: '789 Emerald Road, Delhi', number: '7654321098', gstin: '07BBBBB0000B1Z4' },
+  { id: 'CUST-004', name: 'Sunita Williams', fatherName: 'John Williams', businessName: 'Galaxy Ornaments', address: '101 Sapphire Avenue, Bangalore', number: '6543210987' },
 ];
 
 export default function CustomersPage() {
@@ -56,12 +58,14 @@ export default function CustomersPage() {
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const newCustomerData = {
+    const newCustomerData: Customer = {
       id: editingCustomer?.id || `CUST-00${customers.length + 1}`,
       name: formData.get('name') as string,
-      email: formData.get('email') as string,
-      phone: formData.get('phone') as string,
-      company: formData.get('company') as string,
+      fatherName: formData.get('fatherName') as string,
+      businessName: formData.get('businessName') as string || undefined,
+      address: formData.get('address') as string,
+      number: formData.get('number') as string,
+      gstin: formData.get('gstin') as string || undefined,
     };
 
     if (editingCustomer) {
@@ -102,7 +106,7 @@ export default function CustomersPage() {
               Add Customer
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>{editingCustomer ? 'Edit Customer' : 'Add New Customer'}</DialogTitle>
               <DialogDescription>
@@ -116,16 +120,24 @@ export default function CustomersPage() {
                   <Input id="name" name="name" defaultValue={editingCustomer?.name} className="col-span-3" required />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="email" className="text-right">Email</Label>
-                  <Input id="email" name="email" type="email" defaultValue={editingCustomer?.email} className="col-span-3" required />
+                  <Label htmlFor="fatherName" className="text-right">Father's Name</Label>
+                  <Input id="fatherName" name="fatherName" defaultValue={editingCustomer?.fatherName} className="col-span-3" required />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="phone" className="text-right">Phone</Label>
-                  <Input id="phone" name="phone" defaultValue={editingCustomer?.phone} className="col-span-3" required />
+                  <Label htmlFor="businessName" className="text-right">Business Name</Label>
+                  <Input id="businessName" name="businessName" defaultValue={editingCustomer?.businessName} className="col-span-3" />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="company" className="text-right">Company</Label>
-                  <Input id="company" name="company" defaultValue={editingCustomer?.company} className="col-span-3" required />
+                  <Label htmlFor="address" className="text-right">Address</Label>
+                  <Input id="address" name="address" defaultValue={editingCustomer?.address} className="col-span-3" required />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="number" className="text-right">Number</Label>
+                  <Input id="number" name="number" defaultValue={editingCustomer?.number} className="col-span-3" required />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="gstin" className="text-right">GSTIN</Label>
+                  <Input id="gstin" name="gstin" defaultValue={editingCustomer?.gstin} className="col-span-3" />
                 </div>
               </div>
               <DialogFooter>
@@ -139,22 +151,24 @@ export default function CustomersPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Customer ID</TableHead>
               <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Phone</TableHead>
-              <TableHead>Company</TableHead>
+              <TableHead>Father's Name</TableHead>
+              <TableHead>Business Name</TableHead>
+              <TableHead>Address</TableHead>
+              <TableHead>Number</TableHead>
+              <TableHead>GSTIN</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {customers.map((customer) => (
               <TableRow key={customer.id}>
-                <TableCell>{customer.id}</TableCell>
                 <TableCell>{customer.name}</TableCell>
-                <TableCell>{customer.email}</TableCell>
-                <TableCell>{customer.phone}</TableCell>
-                <TableCell>{customer.company}</TableCell>
+                <TableCell>{customer.fatherName}</TableCell>
+                <TableCell>{customer.businessName || '-'}</TableCell>
+                <TableCell>{customer.address}</TableCell>
+                <TableCell>{customer.number}</TableCell>
+                <TableCell>{customer.gstin || '-'}</TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -183,3 +197,5 @@ export default function CustomersPage() {
     </Card>
   );
 }
+
+    
