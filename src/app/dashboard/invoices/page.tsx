@@ -1,268 +1,348 @@
 
 "use client";
 
-import React, { useState } from 'react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { PlusCircle, MoreHorizontal, Trash2, Edit, Search } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState, useEffect } from 'react';
+import { useForm, useFieldArray, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { PlusCircle, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { format, parseISO, isValid } from 'date-fns';
 
-type InvoiceStatus = 'Paid' | 'Unpaid' | 'Overdue';
-
-type Invoice = {
-  id: string;
-  invoiceNumber: string;
-  customerName: string;
-  invoiceDate: string;
-  dueDate: string;
-  amount: number;
-  status: InvoiceStatus;
-};
-
-const initialInvoices: Invoice[] = [
-  { id: 'INV-001', invoiceNumber: 'INV-2024-050', customerName: 'Rohan Sharma', invoiceDate: '2024-05-15', dueDate: '2024-06-14', amount: 150000, status: 'Paid' },
-  { id: 'INV-002', invoiceNumber: 'INV-2024-051', customerName: 'Priya Patel', invoiceDate: '2024-05-20', dueDate: '2024-06-19', amount: 75000, status: 'Unpaid' },
-  { id: 'INV-003', invoiceNumber: 'INV-2024-042', customerName: 'Amit Singh', invoiceDate: '2024-04-10', dueDate: '2024-05-10', amount: 220000, status: 'Overdue' },
-  { id: 'INV-004', invoiceNumber: 'INV-2024-052', customerName: 'Sunita Williams', invoiceDate: '2024-05-25', dueDate: '2024-06-24', amount: 98000, status: 'Unpaid' },
+// Mock Data
+const mockCustomers = [
+  { id: 'CUST-001', name: 'Rohan Sharma', address: '123 Diamond Street, Jaipur', gstin: '08AAAAA0000A1Z5' },
+  { id: 'CUST-002', name: 'Priya Patel', address: '456 Ruby Lane, Mumbai', gstin: '' },
+  { id: 'CUST-003', name: 'Amit Singh', address: '789 Emerald Road, Delhi', gstin: '07BBBBB0000B1Z4' },
 ];
 
-const formatDate = (dateString: string) => {
-    try {
-        const date = parseISO(dateString);
-        if (isValid(date)) {
-            return format(date, 'PPP');
-        }
-        return "Invalid Date";
-    } catch (error) {
-        return "Invalid Date";
-    }
+const mockBusinessDetails = {
+  name: 'GemsAccurate Inc.',
+  address: '456 Gold Plaza, Jewel City',
+  phone: '+91 9988776655',
+  gstin: '29ABCDE1234F1Z5',
 };
 
-export default function InvoicesPage() {
+// Zod Schema for validation
+const itemSchema = z.object({
+  itemName: z.string().min(1, 'Item name is required'),
+  qty: z.coerce.number().min(1, 'Quantity must be at least 1'),
+  hsn: z.string().optional(),
+  grossWeight: z.coerce.number().positive('Weight must be positive'),
+  purity: z.coerce.number().positive('Purity must be positive'),
+  rate: z.coerce.number().positive('Rate must be positive'),
+  makingChargeType: z.enum(['percentage', 'flat', 'per_gram']),
+  makingChargeValue: z.coerce.number().nonnegative('Making charge must be non-negative'),
+});
+
+const invoiceSchema = z.object({
+  customerId: z.string().min(1, 'Please select a customer'),
+  paymentMode: z.string().min(1, 'Please select a payment mode'),
+  items: z.array(itemSchema).min(1, 'Please add at least one item'),
+  discount: z.coerce.number().nonnegative().optional(),
+});
+
+type InvoiceFormData = z.infer<typeof invoiceSchema>;
+type ItemFormData = z.infer<typeof itemSchema>;
+
+
+export default function InvoiceGeneratorPage() {
   const { toast } = useToast();
-  const [invoices, setInvoices] = useState<Invoice[]>(initialInvoices);
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [invoiceDate, setInvoiceDate] = useState('');
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [selectedCustomer, setSelectedCustomer] = useState<(typeof mockCustomers)[0] | null>(null);
 
-  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const invoiceData: Invoice = {
-      id: editingInvoice?.id || `INV-00${invoices.length + 1}`,
-      invoiceNumber: formData.get('invoiceNumber') as string,
-      customerName: formData.get('customerName') as string,
-      invoiceDate: formData.get('invoiceDate') as string,
-      dueDate: formData.get('dueDate') as string,
-      amount: parseFloat(formData.get('amount') as string),
-      status: formData.get('status') as InvoiceStatus,
-    };
-
-    if (editingInvoice) {
-      setInvoices(invoices.map(i => i.id === editingInvoice.id ? invoiceData : i));
-      toast({ title: "Invoice Updated", description: "The invoice has been successfully updated." });
-    } else {
-      setInvoices([...invoices, invoiceData]);
-      toast({ title: "Invoice Created", description: "A new invoice has been successfully created." });
-    }
-
-    setIsFormOpen(false);
-    setEditingInvoice(null);
-  };
-
-  const handleEdit = (invoice: Invoice) => {
-    setEditingInvoice(invoice);
-    setIsFormOpen(true);
-  };
-  
-  const handleDelete = (invoiceId: string) => {
-    setInvoices(invoices.filter(i => i.id !== invoiceId));
-    toast({ variant: 'destructive', title: "Invoice Deleted", description: "The invoice has been removed." });
-  };
-
-  const openNewInvoiceForm = () => {
-    setEditingInvoice(null);
-    setIsFormOpen(true);
-  }
-
-  const filteredInvoices = invoices.filter((invoice) => {
-    const searchTermLower = searchTerm.toLowerCase();
-    return (
-      invoice.invoiceNumber.toLowerCase().includes(searchTermLower) ||
-      invoice.customerName.toLowerCase().includes(searchTermLower) ||
-      invoice.status.toLowerCase().includes(searchTermLower) ||
-      invoice.amount.toString().includes(searchTermLower)
-    );
+  const form = useForm<InvoiceFormData>({
+    resolver: zodResolver(invoiceSchema),
+    defaultValues: {
+      customerId: '',
+      paymentMode: 'Cash',
+      items: [{
+        itemName: '',
+        qty: 1,
+        hsn: '',
+        grossWeight: 0,
+        purity: 91.6,
+        rate: 5000,
+        makingChargeType: 'percentage',
+        makingChargeValue: 10
+      }],
+      discount: 0
+    },
   });
 
-  const getStatusVariant = (status: InvoiceStatus) => {
-    switch (status) {
-      case 'Paid': return 'default';
-      case 'Unpaid': return 'secondary';
-      case 'Overdue': return 'destructive';
-      default: return 'outline';
+  const { register, control, handleSubmit, watch, formState: { errors } } = form;
+  const { fields, append, remove } = useFieldArray({ control, name: 'items' });
+
+  const watchedItems = watch('items');
+  const watchedDiscount = watch('discount') || 0;
+  const watchedCustomerId = watch('customerId');
+
+  useEffect(() => {
+    setInvoiceDate(new Date().toLocaleDateString('en-CA')); // YYYY-MM-DD format
+    setInvoiceNumber(`INV-${Date.now().toString().slice(-6)}`);
+  }, []);
+
+  useEffect(() => {
+    if (watchedCustomerId) {
+      const customer = mockCustomers.find(c => c.id === watchedCustomerId) || null;
+      setSelectedCustomer(customer);
+    } else {
+      setSelectedCustomer(null);
     }
+  }, [watchedCustomerId]);
+
+
+  const calculateTotals = () => {
+    let subtotal = 0;
+    watchedItems.forEach(item => {
+      const baseAmount = item.grossWeight * item.rate * (item.purity / 100);
+      let makingCharges = 0;
+      if (item.makingChargeType === 'percentage') {
+        makingCharges = baseAmount * (item.makingChargeValue / 100);
+      } else if (item.makingChargeType === 'flat') {
+        makingCharges = item.makingChargeValue;
+      } else if (item.makingChargeType === 'per_gram') {
+        makingCharges = item.grossWeight * item.makingChargeValue;
+      }
+      const itemTotal = baseAmount + makingCharges;
+      subtotal += itemTotal * item.qty;
+    });
+
+    const gst = selectedCustomer?.gstin ? subtotal * 0.03 : 0;
+    const total = subtotal + gst - watchedDiscount;
+
+    return { subtotal, gst, total };
   };
 
+  const { subtotal, gst, total } = calculateTotals();
+
+  const onSubmit = (data: InvoiceFormData) => {
+    console.log({ ...data, subtotal, gst, total });
+    toast({
+      title: "Invoice Generated!",
+      description: "The invoice has been successfully created and logged.",
+    });
+    form.reset();
+  };
+  
+  const getItemTotal = (item: ItemFormData) => {
+      if (!item.grossWeight || !item.rate || !item.purity || !item.makingChargeValue) return 0;
+      const baseAmount = item.grossWeight * item.rate * (item.purity / 100);
+      let makingCharges = 0;
+      if (item.makingChargeType === 'percentage') {
+        makingCharges = baseAmount * (item.makingChargeValue / 100);
+      } else if (item.makingChargeType === 'flat') {
+        makingCharges = item.makingChargeValue;
+      } else if (item.makingChargeType === 'per_gram') {
+        makingCharges = item.grossWeight * item.makingChargeValue;
+      }
+      return (baseAmount + makingCharges) * item.qty;
+  }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between gap-4">
-            <CardTitle>Invoice Management</CardTitle>
-            <div className="flex items-center gap-2">
-                 <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                        placeholder="Search invoices..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10"
-                    />
-                 </div>
-                <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-                <DialogTrigger asChild>
-                    <Button onClick={openNewInvoiceForm}>
-                    <PlusCircle className="mr-2" />
-                    Create Invoice
-                    </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                    <DialogTitle>{editingInvoice ? 'Edit Invoice' : 'Create New Invoice'}</DialogTitle>
-                    <DialogDescription>
-                        {editingInvoice ? 'Update the details of the invoice.' : 'Fill in the details for the new invoice.'}
-                    </DialogDescription>
-                    </DialogHeader>
-                    <form onSubmit={handleFormSubmit}>
-                    <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="invoiceNumber" className="text-right">Invoice #</Label>
-                            <Input id="invoiceNumber" name="invoiceNumber" defaultValue={editingInvoice?.invoiceNumber || `INV-2024-0${invoices.length + 50}`} className="col-span-3" required />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="customerName" className="text-right">Customer</Label>
-                            <Input id="customerName" name="customerName" defaultValue={editingInvoice?.customerName} className="col-span-3" required />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="invoiceDate" className="text-right">Invoice Date</Label>
-                            <Input id="invoiceDate" name="invoiceDate" type="date" defaultValue={editingInvoice?.invoiceDate} className="col-span-3" required />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="dueDate" className="text-right">Due Date</Label>
-                            <Input id="dueDate" name="dueDate" type="date" defaultValue={editingInvoice?.dueDate} className="col-span-3" required />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="amount" className="text-right">Amount (₹)</Label>
-                            <Input id="amount" name="amount" type="number" defaultValue={editingInvoice?.amount} className="col-span-3" required />
-                        </div>
-                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="status" className="text-right">Status</Label>
-                             <Select name="status" defaultValue={editingInvoice?.status || 'Unpaid'}>
-                                <SelectTrigger className="col-span-3">
-                                    <SelectValue placeholder="Select status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="Paid">Paid</SelectItem>
-                                    <SelectItem value="Unpaid">Unpaid</SelectItem>
-                                    <SelectItem value="Overdue">Overdue</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button type="submit">{editingInvoice ? 'Save Changes' : 'Create Invoice'}</Button>
-                    </DialogFooter>
-                    </form>
-                </DialogContent>
-                </Dialog>
+    <form onSubmit={handleSubmit(onSubmit)}>
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="text-3xl font-bold">{selectedCustomer?.gstin ? 'Invoice' : 'Cash Memo'}</h1>
+              <p>{mockBusinessDetails.name}</p>
+              <p>{mockBusinessDetails.address}</p>
+              <p>Phone: {mockBusinessDetails.phone}</p>
+              {mockBusinessDetails.gstin && <p>GSTIN: {mockBusinessDetails.gstin}</p>}
             </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Invoice #</TableHead>
-              <TableHead>Customer</TableHead>
-              <TableHead>Invoice Date</TableHead>
-              <TableHead>Due Date</TableHead>
-              <TableHead>Amount</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredInvoices.map((invoice) => (
-              <TableRow key={invoice.id}>
-                <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
-                <TableCell>{invoice.customerName}</TableCell>
-                <TableCell>{formatDate(invoice.invoiceDate)}</TableCell>
-                <TableCell>{formatDate(invoice.dueDate)}</TableCell>
-                <TableCell>₹{invoice.amount.toLocaleString('en-IN')}</TableCell>
-                <TableCell>
-                  <Badge variant={getStatusVariant(invoice.status)}>{invoice.status}</Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
-                        <span className="sr-only">Open menu</span>
-                        <MoreHorizontal className="h-4 w-4" />
+            <div className="text-right">
+              <h2 className="text-xl font-semibold">Details</h2>
+              <p>Invoice #: {invoiceNumber}</p>
+              <p>Date: {new Date(invoiceDate).toLocaleDateString()}</p>
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-8">
+          {/* Customer and Invoice Details */}
+          <div className="grid md:grid-cols-2 gap-6 p-4 border rounded-lg">
+            <div>
+              <Label htmlFor="customerId">Customer</Label>
+              <Controller
+                name="customerId"
+                control={control}
+                render={({ field }) => (
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a customer" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {mockCustomers.map(c => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {selectedCustomer && (
+                <div className="mt-2 text-sm text-muted-foreground">
+                  <p>{selectedCustomer.address}</p>
+                  {selectedCustomer.gstin && <p>GSTIN: {selectedCustomer.gstin}</p>}
+                </div>
+              )}
+               {errors.customerId && <p className="text-sm text-destructive mt-1">{errors.customerId.message}</p>}
+            </div>
+            <div>
+              <Label htmlFor="paymentMode">Payment Mode</Label>
+              <Controller
+                name="paymentMode"
+                control={control}
+                render={({ field }) => (
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select payment mode" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Cash">Cash</SelectItem>
+                      <SelectItem value="Card">Card</SelectItem>
+                      <SelectItem value="Online">Online</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+               {errors.paymentMode && <p className="text-sm text-destructive mt-1">{errors.paymentMode.message}</p>}
+            </div>
+          </div>
+
+          {/* Items Table */}
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[40px]">SN</TableHead>
+                  <TableHead className="min-w-[150px]">Item Name</TableHead>
+                  <TableHead className="w-[80px]">Qty</TableHead>
+                  <TableHead className="min-w-[100px]">HSN</TableHead>
+                  <TableHead className="min-w-[120px]">Gross Wt(g)</TableHead>
+                  <TableHead className="min-w-[100px]">Purity (%)</TableHead>
+                  <TableHead className="min-w-[120px]">Rate</TableHead>
+                  <TableHead className="min-w-[200px]">Making Charges</TableHead>
+                  <TableHead className="min-w-[120px] text-right">Total</TableHead>
+                  <TableHead className="w-[50px]"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {fields.map((field, index) => (
+                  <TableRow key={field.id}>
+                    <TableCell>{index + 1}</TableCell>
+                    <TableCell>
+                      <Input {...register(`items.${index}.itemName`)} placeholder="e.g., Gold Ring" />
+                       {errors.items?.[index]?.itemName && <p className="text-sm text-destructive mt-1">Required</p>}
+                    </TableCell>
+                    <TableCell>
+                      <Input type="number" {...register(`items.${index}.qty`)} />
+                    </TableCell>
+                    <TableCell>
+                      <Input {...register(`items.${index}.hsn`)} placeholder="e.g., 7113" />
+                    </TableCell>
+                    <TableCell>
+                      <Input type="number" step="0.01" {...register(`items.${index}.grossWeight`)} />
+                    </TableCell>
+                    <TableCell>
+                      <Input type="number" step="0.01" {...register(`items.${index}.purity`)} placeholder="e.g., 92.5" />
+                    </TableCell>
+                    <TableCell>
+                      <Input type="number" step="0.01" {...register(`items.${index}.rate`)} />
+                    </TableCell>
+                    <TableCell>
+                        <div className="flex gap-1">
+                            <Controller
+                                name={`items.${index}.makingChargeType`}
+                                control={control}
+                                render={({ field }) => (
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <SelectTrigger className="w-[100px]">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="percentage">%</SelectItem>
+                                        <SelectItem value="flat">Flat</SelectItem>
+                                        <SelectItem value="per_gram">/gm</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                )}
+                            />
+                            <Input type="number" step="0.01" {...register(`items.${index}.makingChargeValue`)} className="flex-1"/>
+                        </div>
+                    </TableCell>
+                    <TableCell className="text-right font-medium">₹{getItemTotal(watchedItems[index] as ItemFormData).toFixed(2)}</TableCell>
+                    <TableCell>
+                      <Button variant="ghost" size="icon" onClick={() => remove(index)} disabled={fields.length <= 1}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleEdit(invoice)}>
-                        <Edit className="mr-2 h-4 w-4" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(invoice.id)}>
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          <Button type="button" variant="outline" onClick={() => append({ itemName: '', qty: 1, hsn: '', grossWeight: 0, purity: 91.6, rate: 5000, makingChargeType: 'percentage', makingChargeValue: 10 })}>
+            <PlusCircle className="mr-2" /> Add Item
+          </Button>
+
+            {errors.items && !errors.items.root && (
+                 <p className="text-sm text-destructive mt-1">Please check item details. All fields except HSN are required.</p>
+            )}
+            {errors.items?.root && (
+                 <p className="text-sm text-destructive mt-1">{errors.items.root.message}</p>
+            )}
+
+
+          {/* Totals Section */}
+          <div className="flex justify-end">
+            <div className="w-full max-w-sm space-y-2">
+              <div className="flex justify-between">
+                <span>Subtotal:</span>
+                <span>₹{subtotal.toFixed(2)}</span>
+              </div>
+               <div className="flex justify-between items-center">
+                <Label htmlFor='discount'>Discount:</Label>
+                <Input id="discount" type="number" {...register('discount')} className="w-32" placeholder="e.g., 100"/>
+              </div>
+              {selectedCustomer?.gstin && (
+                <div className="flex justify-between">
+                  <span>GST (3%):</span>
+                  <span>₹{gst.toFixed(2)}</span>
+                </div>
+              )}
+              <hr/>
+              <div className="flex justify-between text-xl font-bold">
+                <span>Total:</span>
+                <span>₹{total.toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+
+        <CardFooter className="flex-col items-start gap-4">
+            <div className='flex justify-between w-full'>
+                <div className="text-center">
+                    <div className="w-32 h-12 border-b mt-8"></div>
+                    <p className="text-sm">Customer Signature</p>
+                </div>
+                <div className="text-center">
+                    <div className="w-32 h-12 border-b mt-8"></div>
+                    <p className="text-sm">Authorised Signature</p>
+                </div>
+            </div>
+          <p className="text-center text-muted-foreground text-sm w-full">Thank You! Visit Again.</p>
+           <Button type="submit" className="w-full" size="lg">Generate Invoice</Button>
+        </CardFooter>
+      </Card>
+    </form>
   );
 }
 
