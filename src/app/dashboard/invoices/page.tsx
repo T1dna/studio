@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useInvoices, Invoice } from '@/contexts/invoices-context';
+import { useRouter } from 'next/navigation';
 
 const getStatusVariant = (status: Invoice['status']): "default" | "secondary" | "destructive" => {
     switch (status) {
@@ -36,6 +37,7 @@ const getStatusVariant = (status: Invoice['status']): "default" | "secondary" | 
 export default function InvoicesPage() {
   const { invoices } = useInvoices();
   const [searchTerm, setSearchTerm] = useState('');
+  const router = useRouter();
 
   const filteredInvoices = useMemo(() => {
     const term = searchTerm.toLowerCase();
@@ -46,6 +48,10 @@ export default function InvoicesPage() {
       invoice.status.toLowerCase().includes(term)
     );
   }, [searchTerm, invoices]);
+  
+  const handleViewDetails = (invoiceId: string) => {
+    router.push(`/dashboard/invoices/${invoiceId}`);
+  }
 
   return (
     <Card>
@@ -86,7 +92,7 @@ export default function InvoicesPage() {
           <TableBody>
             {filteredInvoices.length > 0 ? (
                 filteredInvoices.map((invoice) => (
-                <TableRow key={invoice.id}>
+                <TableRow key={invoice.id} className="cursor-pointer" onClick={() => handleViewDetails(invoice.id)}>
                     <TableCell className="font-medium">{invoice.id}</TableCell>
                     <TableCell>{invoice.customerName}</TableCell>
                     <TableCell>{new Date(invoice.date).toLocaleDateString()}</TableCell>
@@ -97,13 +103,13 @@ export default function InvoicesPage() {
                     <TableCell className="text-right">
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
+                        <Button variant="ghost" className="h-8 w-8 p-0" onClick={(e) => e.stopPropagation()}>
                             <span className="sr-only">Open menu</span>
                             <MoreHorizontal className="h-4 w-4" />
                         </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={(e) => {e.stopPropagation(); handleViewDetails(invoice.id)}}>
                             <FileText className="mr-2 h-4 w-4" />
                             View Details
                         </DropdownMenuItem>

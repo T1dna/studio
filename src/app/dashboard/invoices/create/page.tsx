@@ -53,6 +53,35 @@ type InvoiceFormData = z.infer<typeof invoiceSchema>;
 type ItemFormData = z.infer<typeof itemSchema>;
 
 
+const getItemTotal = (item: ItemFormData): number => {
+    const qty = Number(item.qty);
+    const rate = Number(item.rate);
+    const grossWeight = Number(item.grossWeight);
+    const makingChargeValue = Number(item.makingChargeValue);
+
+    // Defensive check to ensure all values are valid numbers before calculation
+    if (isNaN(qty) || isNaN(rate) || qty <= 0 || rate <= 0) {
+      return 0;
+    }
+
+    const baseAmount = qty * rate;
+
+    switch (item.makingChargeType) {
+      case 'percentage':
+        if (isNaN(makingChargeValue)) return baseAmount;
+        return baseAmount + (baseAmount * (makingChargeValue / 100));
+      case 'flat':
+        if (isNaN(makingChargeValue)) return baseAmount;
+        return baseAmount + makingChargeValue;
+      case 'per_gram':
+        if (isNaN(makingChargeValue) || isNaN(grossWeight) || grossWeight <= 0) return baseAmount;
+        return baseAmount + (makingChargeValue * grossWeight * qty);
+      default:
+        return baseAmount;
+    }
+  };
+
+
 export default function InvoiceGeneratorPage() {
   const { toast } = useToast();
   const { addInvoice } = useInvoices();
@@ -88,34 +117,6 @@ export default function InvoiceGeneratorPage() {
   
   const selectedCustomer = mockCustomers.find(c => c.id === watchedCustomerId) || null;
   
-  const getItemTotal = (item: ItemFormData): number => {
-    const qty = Number(item.qty);
-    const rate = Number(item.rate);
-    const grossWeight = Number(item.grossWeight);
-    const makingChargeValue = Number(item.makingChargeValue);
-
-    // Defensive check to ensure all values are valid numbers before calculation
-    if (isNaN(qty) || isNaN(rate) || qty <= 0 || rate <= 0) {
-      return 0;
-    }
-
-    const baseAmount = qty * rate;
-
-    switch (item.makingChargeType) {
-      case 'percentage':
-        if (isNaN(makingChargeValue)) return baseAmount;
-        return baseAmount + (baseAmount * (makingChargeValue / 100));
-      case 'flat':
-        if (isNaN(makingChargeValue)) return baseAmount;
-        return baseAmount + makingChargeValue;
-      case 'per_gram':
-        if (isNaN(makingChargeValue) || isNaN(grossWeight) || grossWeight <= 0) return baseAmount;
-        return baseAmount + (makingChargeValue * grossWeight * qty);
-      default:
-        return baseAmount;
-    }
-  };
-
   const calculateTotals = useMemo(() => {
     let subtotal = 0;
     watchedItems.forEach(item => {
@@ -144,6 +145,14 @@ export default function InvoiceGeneratorPage() {
         amount: total,
         status: 'Pending' as 'Paid' | 'Pending' | 'Overdue',
         ...data,
+        customer: selectedCustomer,
+        business: mockBusinessDetails,
+        totals: {
+            subtotal,
+            discount: watchedDiscount,
+            gst,
+            total,
+        }
     };
     addInvoice(newInvoice);
 
@@ -151,8 +160,8 @@ export default function InvoiceGeneratorPage() {
       title: "Invoice Generated!",
       description: `Invoice ${invoiceNumber} has been successfully created.`,
     });
-    form.reset();
-    router.push('/dashboard/invoices');
+    
+    router.push(`/dashboard/invoices/${invoiceNumber}`);
   };
   
 
@@ -216,7 +225,7 @@ export default function InvoiceGeneratorPage() {
               {selectedCustomer && (
                 <div className="mt-2 text-sm text-muted-foreground">
                   <p>{selectedCustomer.address}</p>
-                  {selectedCustomer.gstin && <p>GSTIN: {selectedCustomer.gstin}</p>}
+                  {selectedCustomer.gstin && <p>GSTIN: {selected-customer.gstin}</p>}
                 </div>
               )}
                {errors.customerId && <p className="text-sm text-destructive mt-1">{errors.customerId.message}</p>}

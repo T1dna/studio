@@ -10,22 +10,35 @@ export interface Invoice {
   date: string;
   amount: number;
   status: 'Paid' | 'Pending' | 'Overdue';
+  [key: string]: any; // Allow for other properties
 }
 
 interface InvoicesContextType {
   invoices: Invoice[];
   addInvoice: (invoice: Invoice) => void;
+  getInvoice: (id: string) => Invoice | undefined;
   loading: boolean;
 }
 
 const InvoicesContext = createContext<InvoicesContextType | undefined>(undefined);
 
 const mockInvoices: Invoice[] = [
-  { id: 'INV-2024001', customerName: 'Rohan Sharma', date: '2024-07-15', amount: 25000, status: 'Paid' },
-  { id: 'INV-2024002', customerName: 'Priya Patel', date: '2024-07-12', amount: 15000, status: 'Pending' },
-  { id: 'INV-2024003', customerName: 'Amit Singh', date: '2024-06-20', amount: 45000, status: 'Overdue' },
-  { id: 'INV-2024004', customerName: 'Sunita Williams', date: '2024-07-18', amount: 7500, status: 'Paid' },
-  { id: 'INV-2024005', customerName: 'Rohan Sharma', date: '2024-07-20', amount: 32000, status: 'Pending' },
+  { 
+    id: 'INV-2024001', customerName: 'Rohan Sharma', date: '2024-07-15', amount: 25000, status: 'Paid',
+    items: [{ itemName: 'Gold Ring', qty: 1, grossWeight: 5, rate: 24000, makingChargeType: 'flat', makingChargeValue: 1000 }],
+    totals: { subtotal: 25000, discount: 0, gst: 0, total: 25000 },
+    customer: { id: 'CUST-001', name: 'Rohan Sharma', address: '123 Diamond Street, Jaipur', gstin: '08AAAAA0000A1Z5' },
+    business: { name: 'GemsAccurate Inc.', address: '456 Gold Plaza, Jewel City', phone: '+91 9988776655', gstin: '29ABCDE1234F1Z5' },
+    paymentMode: 'Cash'
+  },
+  { 
+    id: 'INV-2024002', customerName: 'Priya Patel', date: '2024-07-12', amount: 15000, status: 'Pending',
+    items: [{ itemName: 'Silver Chain', qty: 1, grossWeight: 50, rate: 15000, makingChargeType: 'percentage', makingChargeValue: 0 }],
+    totals: { subtotal: 15000, discount: 0, gst: 0, total: 15000 },
+    customer: { id: 'CUST-002', name: 'Priya Patel', address: '456 Ruby Lane, Mumbai', gstin: '' },
+    business: { name: 'GemsAccurate Inc.', address: '456 Gold Plaza, Jewel City', phone: '+91 9988776655', gstin: '29ABCDE1234F1Z5' },
+    paymentMode: 'Online'
+  },
 ];
 
 
@@ -41,6 +54,7 @@ export function InvoicesProvider({ children }: { children: ReactNode }) {
       } else {
         // If no invoices in storage, start with mock data
         setInvoices(mockInvoices);
+        localStorage.setItem('gems-invoices', JSON.stringify(mockInvoices));
       }
     } catch (error) {
       console.error("Failed to parse invoices from localStorage", error);
@@ -58,8 +72,12 @@ export function InvoicesProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('gems-invoices', JSON.stringify(updatedInvoices));
   };
 
+  const getInvoice = (id: string): Invoice | undefined => {
+    return invoices.find(invoice => invoice.id === id);
+  }
+
   return (
-    <InvoicesContext.Provider value={{ invoices, addInvoice, loading }}>
+    <InvoicesContext.Provider value={{ invoices, addInvoice, getInvoice, loading }}>
       {children}
     </InvoicesContext.Provider>
   );
