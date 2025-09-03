@@ -3,11 +3,10 @@
 import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
-import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
+import { SidebarInset } from '@/components/ui/sidebar';
 import { DashboardSidebar } from '@/components/dashboard-sidebar';
 import { Header } from '@/components/header';
 import { usePathname } from 'next/navigation';
-
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -51,12 +50,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <SidebarProvider>
-        <DashboardSidebar />
-        <SidebarInset>
-            <Header title={getTitle()} />
-            <main className="flex-1 p-4 sm:p-6">{children}</main>
-        </SidebarInset>
-    </SidebarProvider>
+    <>
+      <DashboardSidebar />
+      <SidebarInset>
+        <Header title={getTitle()} />
+        <main className="flex-1 p-4 sm:p-6">{children}</main>
+      </SidebarInset>
+    </>
   );
 }
