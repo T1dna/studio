@@ -90,21 +90,24 @@ export default function InvoiceGeneratorPage() {
   }, []);
 
   const getItemTotal = (item: ItemFormData): number => {
-    if (!item.grossWeight || !item.rate) return 0;
+    if (!item.grossWeight || !item.rate || item.qty <= 0) return 0;
+  
     const baseAmount = item.grossWeight * item.rate;
     let makingCharges = 0;
-
-    if (item.makingChargeType === 'percentage') {
-      makingCharges = baseAmount * (item.makingChargeValue / 100);
-      return (baseAmount + makingCharges) * item.qty;
-    } else if (item.makingChargeType === 'flat') {
-      makingCharges = item.makingChargeValue;
-      return (baseAmount * item.qty) + makingCharges;
-    } else if (item.makingChargeType === 'per_gram') {
-      makingCharges = item.grossWeight * item.makingChargeValue;
-      return (baseAmount + makingCharges) * item.qty;
+  
+    switch (item.makingChargeType) {
+      case 'percentage':
+        makingCharges = baseAmount * (item.makingChargeValue / 100);
+        return (baseAmount + makingCharges) * item.qty;
+      case 'flat':
+        makingCharges = item.makingChargeValue;
+        return (baseAmount * item.qty) + makingCharges;
+      case 'per_gram':
+        makingCharges = item.grossWeight * item.makingChargeValue;
+        return (baseAmount + makingCharges) * item.qty;
+      default:
+        return baseAmount * item.qty;
     }
-    return (baseAmount + makingCharges) * item.qty;
   };
 
   const calculateTotals = () => {
@@ -225,7 +228,7 @@ export default function InvoiceGeneratorPage() {
                 <TableRow>
                   <TableHead className="w-[40px]">SN</TableHead>
                   <TableHead className="min-w-[150px]">Item Name</TableHead>
-                  <TableHead className="w-[80px]">Qty</TableHead>
+                  <TableHead className="w-[120px]">Qty</TableHead>
                   <TableHead className="min-w-[100px]">HSN</TableHead>
                   <TableHead className="min-w-[120px]">Gross Wt(g)</TableHead>
                   <TableHead className="min-w-[100px]">(Purity)</TableHead>
