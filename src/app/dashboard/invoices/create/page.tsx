@@ -85,24 +85,22 @@ export default function InvoiceGeneratorPage() {
   const selectedCustomer = mockCustomers.find(c => c.id === watchedCustomerId) || null;
   
   const getItemTotal = (item: ItemFormData): number => {
-    if (!item.grossWeight || !item.rate || item.qty <= 0) return 0;
+    const { qty, rate, grossWeight, makingChargeType, makingChargeValue } = item;
+    
+    if (!qty || !rate || !grossWeight) return 0;
   
-    const baseAmount = item.grossWeight * item.rate;
-    let makingCharges = 0;
+    const baseAmount = qty * rate;
+    let makingCharge = 0;
   
-    switch (item.makingChargeType) {
-      case 'percentage':
-        makingCharges = baseAmount * (item.makingChargeValue / 100);
-        return (baseAmount + makingCharges) * item.qty;
-      case 'flat':
-        makingCharges = item.makingChargeValue;
-        return (baseAmount * item.qty) + makingCharges;
-      case 'per_gram':
-        makingCharges = item.grossWeight * item.makingChargeValue;
-        return (baseAmount + makingCharges) * item.qty;
-      default:
-        return baseAmount * item.qty;
+    if (makingChargeType === 'percentage') {
+      makingCharge = baseAmount * (makingChargeValue / 100);
+    } else if (makingChargeType === 'flat') {
+      makingCharge = makingChargeValue;
+    } else if (makingChargeType === 'per_gram') {
+      makingCharge = makingChargeValue * grossWeight * qty;
     }
+  
+    return baseAmount + makingCharge;
   };
 
   const calculateTotals = useMemo(() => {
