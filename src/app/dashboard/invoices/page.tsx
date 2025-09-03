@@ -92,17 +92,7 @@ export default function InvoiceGeneratorPage() {
   const calculateTotals = () => {
     let subtotal = 0;
     watchedItems.forEach(item => {
-      const baseAmount = item.grossWeight * item.rate;
-      let makingCharges = 0;
-      if (item.makingChargeType === 'percentage') {
-        makingCharges = baseAmount * (item.makingChargeValue / 100);
-      } else if (item.makingChargeType === 'flat') {
-        makingCharges = item.makingChargeValue;
-      } else if (item.makingChargeType === 'per_gram') {
-        makingCharges = item.grossWeight * item.makingChargeValue;
-      }
-      const itemTotal = baseAmount + makingCharges;
-      subtotal += itemTotal * item.qty;
+      subtotal += getItemTotal(item);
     });
 
     const gst = selectedCustomer?.gstin ? subtotal * 0.03 : 0;
@@ -123,15 +113,18 @@ export default function InvoiceGeneratorPage() {
   };
   
   const getItemTotal = (item: ItemFormData) => {
-      if (!item.grossWeight || !item.rate || !item.makingChargeValue) return 0;
+      if (!item.grossWeight || !item.rate) return 0;
       const baseAmount = item.grossWeight * item.rate;
       let makingCharges = 0;
       if (item.makingChargeType === 'percentage') {
         makingCharges = baseAmount * (item.makingChargeValue / 100);
+        return (baseAmount + makingCharges) * item.qty;
       } else if (item.makingChargeType === 'flat') {
         makingCharges = item.makingChargeValue;
+        return (baseAmount * item.qty) + makingCharges;
       } else if (item.makingChargeType === 'per_gram') {
         makingCharges = item.grossWeight * item.makingChargeValue;
+        return (baseAmount + makingCharges) * item.qty;
       }
       return (baseAmount + makingCharges) * item.qty;
   }
