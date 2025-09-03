@@ -84,7 +84,7 @@ export default function InvoiceGeneratorPage() {
   
   const selectedCustomer = mockCustomers.find(c => c.id === watchedCustomerId) || null;
   
-  const getItemTotal = useMemo(() => (item: ItemFormData): number => {
+  const getItemTotal = (item: ItemFormData): number => {
     if (!item.grossWeight || !item.rate || item.qty <= 0) return 0;
   
     const baseAmount = item.grossWeight * item.rate;
@@ -103,7 +103,7 @@ export default function InvoiceGeneratorPage() {
       default:
         return baseAmount * item.qty;
     }
-  }, []);
+  };
 
   const calculateTotals = useMemo(() => {
     let subtotal = 0;
@@ -115,7 +115,7 @@ export default function InvoiceGeneratorPage() {
     const total = subtotal + gst - watchedDiscount;
 
     return { subtotal, gst, total };
-  }, [watchedItems, selectedCustomer, watchedDiscount, getItemTotal]);
+  }, [watchedItems, selectedCustomer, watchedDiscount]);
   
   const { subtotal, gst, total } = calculateTotals;
   
