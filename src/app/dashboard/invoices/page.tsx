@@ -34,7 +34,7 @@ const itemSchema = z.object({
   qty: z.coerce.number().min(1, 'Quantity must be at least 1'),
   hsn: z.string().optional(),
   grossWeight: z.coerce.number().positive('Weight must be positive'),
-  purity: z.coerce.number().positive('Purity must be positive'),
+  purity: z.string().optional(),
   rate: z.coerce.number().positive('Rate must be positive'),
   makingChargeType: z.enum(['percentage', 'flat', 'per_gram']),
   makingChargeValue: z.coerce.number().nonnegative('Making charge must be non-negative'),
@@ -66,7 +66,7 @@ export default function InvoiceGeneratorPage() {
         qty: 1,
         hsn: '',
         grossWeight: 0,
-        purity: 91.6,
+        purity: "91.6",
         rate: 5000,
         makingChargeType: 'percentage',
         makingChargeValue: 10
@@ -92,7 +92,7 @@ export default function InvoiceGeneratorPage() {
   const calculateTotals = () => {
     let subtotal = 0;
     watchedItems.forEach(item => {
-      const baseAmount = item.grossWeight * item.rate * (item.purity / 100);
+      const baseAmount = item.grossWeight * item.rate;
       let makingCharges = 0;
       if (item.makingChargeType === 'percentage') {
         makingCharges = baseAmount * (item.makingChargeValue / 100);
@@ -123,8 +123,8 @@ export default function InvoiceGeneratorPage() {
   };
   
   const getItemTotal = (item: ItemFormData) => {
-      if (!item.grossWeight || !item.rate || !item.purity || !item.makingChargeValue) return 0;
-      const baseAmount = item.grossWeight * item.rate * (item.purity / 100);
+      if (!item.grossWeight || !item.rate || !item.makingChargeValue) return 0;
+      const baseAmount = item.grossWeight * item.rate;
       let makingCharges = 0;
       if (item.makingChargeType === 'percentage') {
         makingCharges = baseAmount * (item.makingChargeValue / 100);
@@ -233,7 +233,7 @@ export default function InvoiceGeneratorPage() {
                   <TableHead className="w-[120px]">Qty</TableHead>
                   <TableHead className="min-w-[100px]">HSN</TableHead>
                   <TableHead className="min-w-[120px]">Gross Wt(g)</TableHead>
-                  <TableHead className="min-w-[100px]">Purity (%)</TableHead>
+                  <TableHead className="min-w-[100px]">(Purity)</TableHead>
                   <TableHead className="min-w-[120px]">Rate</TableHead>
                   <TableHead className="min-w-[200px]">Making Charges</TableHead>
                   <TableHead className="min-w-[120px] text-right">Total</TableHead>
@@ -258,7 +258,7 @@ export default function InvoiceGeneratorPage() {
                       <Input type="number" step="0.01" {...register(`items.${index}.grossWeight`)} />
                     </TableCell>
                     <TableCell>
-                      <Input type="number" step="0.01" {...register(`items.${index}.purity`)} placeholder="e.g., 92.5" />
+                      <Input type="text" {...register(`items.${index}.purity`)} placeholder="e.g., 22K" />
                     </TableCell>
                     <TableCell>
                       <Input type="number" step="0.01" {...register(`items.${index}.rate`)} />
@@ -296,12 +296,12 @@ export default function InvoiceGeneratorPage() {
             </Table>
           </div>
 
-          <Button type="button" variant="outline" onClick={() => append({ itemName: '', qty: 1, hsn: '', grossWeight: 0, purity: 91.6, rate: 5000, makingChargeType: 'percentage', makingChargeValue: 10 })}>
+          <Button type="button" variant="outline" onClick={() => append({ itemName: '', qty: 1, hsn: '', grossWeight: 0, purity: '91.6', rate: 5000, makingChargeType: 'percentage', makingChargeValue: 10 })}>
             <PlusCircle className="mr-2" /> Add Item
           </Button>
 
             {errors.items && !errors.items.root && (
-                 <p className="text-sm text-destructive mt-1">Please check item details. All fields except HSN are required.</p>
+                 <p className="text-sm text-destructive mt-1">Please check item details. All fields except HSN and Purity are required.</p>
             )}
             {errors.items?.root && (
                  <p className="text-sm text-destructive mt-1">{errors.items.root.message}</p>
