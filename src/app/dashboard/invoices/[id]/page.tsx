@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useInvoices, Invoice } from '@/contexts/invoices-context';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Printer } from 'lucide-react';
@@ -15,10 +15,12 @@ const formatCurrency = (amount: number) => `₹${amount.toFixed(2)}`;
 export default function InvoiceDetailPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const { getInvoice, loading } = useInvoices();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
 
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
+  const shouldPrint = searchParams.get('print') === 'true';
 
   useEffect(() => {
     if (!loading && id) {
@@ -32,6 +34,12 @@ export default function InvoiceDetailPage() {
     }
   }, [id, getInvoice, loading, router]);
   
+  useEffect(() => {
+    if (invoice && shouldPrint) {
+      setTimeout(() => window.print(), 500); // Timeout to allow content to render
+    }
+  }, [invoice, shouldPrint]);
+
   const handlePrint = () => {
     window.print();
   };
@@ -179,5 +187,3 @@ export default function InvoiceDetailPage() {
     </div>
   );
 }
-
-    

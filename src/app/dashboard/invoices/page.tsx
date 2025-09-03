@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PlusCircle, Search, MoreHorizontal, FileText } from "lucide-react";
+import { PlusCircle, Search, MoreHorizontal, FileText, Printer } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -52,6 +52,10 @@ export default function InvoicesPage() {
   const handleViewDetails = (invoiceId: string) => {
     router.push(`/dashboard/invoices/${invoiceId}`);
   }
+  
+  const handlePrint = (invoiceId: string) => {
+    router.push(`/dashboard/invoices/${invoiceId}?print=true`);
+  };
 
   return (
     <Card>
@@ -92,7 +96,7 @@ export default function InvoicesPage() {
           <TableBody>
             {filteredInvoices.length > 0 ? (
                 filteredInvoices.map((invoice) => (
-                <TableRow key={invoice.id} className="cursor-pointer" onClick={() => handleViewDetails(invoice.id)}>
+                <TableRow key={invoice.id}>
                     <TableCell className="font-medium">{invoice.id}</TableCell>
                     <TableCell>{invoice.customerName}</TableCell>
                     <TableCell>{new Date(invoice.date).toLocaleDateString()}</TableCell>
@@ -103,15 +107,19 @@ export default function InvoicesPage() {
                     <TableCell className="text-right">
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0" onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
                             <span className="sr-only">Open menu</span>
                             <MoreHorizontal className="h-4 w-4" />
                         </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={(e) => {e.stopPropagation(); handleViewDetails(invoice.id)}}>
+                        <DropdownMenuItem onClick={() => handleViewDetails(invoice.id)}>
                             <FileText className="mr-2 h-4 w-4" />
                             View Details
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handlePrint(invoice.id)}>
+                            <Printer className="mr-2 h-4 w-4" />
+                            Print
                         </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
