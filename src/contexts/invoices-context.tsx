@@ -65,6 +65,7 @@ export function InvoicesProvider({ children }: { children: ReactNode }) {
           ...inv,
           business: inv.business || mockBusinessDetails,
           customer: inv.customer || { name: inv.customerName || 'N/A', address: ''},
+          items: Array.isArray(inv.items) ? inv.items : [],
         }));
         setInvoices(repairedInvoices);
         // Save the repaired data back to localStorage
