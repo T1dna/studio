@@ -85,22 +85,31 @@ export default function InvoiceGeneratorPage() {
   const selectedCustomer = mockCustomers.find(c => c.id === watchedCustomerId) || null;
   
   const getItemTotal = (item: ItemFormData): number => {
-    const { qty, rate, grossWeight, makingChargeType, makingChargeValue } = item;
-    
-    if (!qty || !rate || !grossWeight) return 0;
-  
-    const baseAmount = qty * rate;
-    let makingCharge = 0;
-  
-    if (makingChargeType === 'percentage') {
-      makingCharge = baseAmount * (makingChargeValue / 100);
-    } else if (makingChargeType === 'flat') {
-      makingCharge = makingChargeValue;
-    } else if (makingChargeType === 'per_gram') {
-      makingCharge = makingChargeValue * grossWeight * qty;
+    const qty = Number(item.qty);
+    const rate = Number(item.rate);
+    const grossWeight = Number(item.grossWeight);
+    const makingChargeValue = Number(item.makingChargeValue);
+
+    // Defensive check to ensure all values are valid numbers before calculation
+    if (isNaN(qty) || isNaN(rate) || qty <= 0 || rate <= 0) {
+      return 0;
     }
-  
-    return baseAmount + makingCharge;
+
+    const baseAmount = qty * rate;
+
+    switch (item.makingChargeType) {
+      case 'percentage':
+        if (isNaN(makingChargeValue)) return baseAmount;
+        return baseAmount + (baseAmount * (makingChargeValue / 100));
+      case 'flat':
+        if (isNaN(makingChargeValue)) return baseAmount;
+        return baseAmount + makingChargeValue;
+      case 'per_gram':
+        if (isNaN(makingChargeValue) || isNaN(grossWeight) || grossWeight <= 0) return baseAmount;
+        return baseAmount + (makingChargeValue * grossWeight * qty);
+      default:
+        return baseAmount;
+    }
   };
 
   const calculateTotals = useMemo(() => {
@@ -113,6 +122,7 @@ export default function InvoiceGeneratorPage() {
     const total = subtotal + gst - watchedDiscount;
 
     return { subtotal, gst, total };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watchedItems, selectedCustomer, watchedDiscount]);
   
   const { subtotal, gst, total } = calculateTotals;
