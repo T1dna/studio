@@ -225,7 +225,7 @@ export default function InvoiceGeneratorPage() {
               {selectedCustomer && (
                 <div className="mt-2 text-sm text-muted-foreground">
                   <p>{selectedCustomer.address}</p>
-                  {selectedCustomer.gstin && <p>GSTIN: {selected-customer.gstin}</p>}
+                  {selectedCustomer.gstin && <p>GSTIN: {selectedCustomer.gstin}</p>}
                 </div>
               )}
                {errors.customerId && <p className="text-sm text-destructive mt-1">{errors.customerId.message}</p>}
@@ -381,5 +381,3 @@ export default function InvoiceGeneratorPage() {
     </form>
   );
 }
-
-    
