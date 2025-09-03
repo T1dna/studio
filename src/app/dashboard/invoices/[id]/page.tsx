@@ -3,7 +3,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { useInvoices, Invoice } from '@/contexts/invoices-context';
+import { useInvoices, Invoice, mockBusinessDetails } from '@/contexts/invoices-context';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Printer } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -26,9 +26,14 @@ export default function InvoiceDetailPage() {
     if (!loading && id) {
       const foundInvoice = getInvoice(id);
       if (foundInvoice) {
-        setInvoice(foundInvoice);
+        // Ensure business and customer data are attached for safety
+        const safeInvoice = {
+            ...foundInvoice,
+            business: foundInvoice.business || mockBusinessDetails,
+            customer: foundInvoice.customer || { name: 'N/A', address: ''},
+        };
+        setInvoice(safeInvoice);
       } else {
-        // Handle case where invoice is not found
         router.push('/dashboard/invoices');
       }
     }
