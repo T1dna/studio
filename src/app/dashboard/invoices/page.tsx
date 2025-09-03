@@ -11,7 +11,7 @@ export default function InvoicesPage() {
       </CardHeader>
       <CardContent>
         <p className="text-muted-foreground">
-          This section is under construction. Here you will be able to create, view, and manage your invoices.
+          This section is under construction. Here you will be able to create, view, and manage your invoices. I'm working on this next!
         </p>
       </CardContent>
     </Card>
