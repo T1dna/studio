@@ -22,13 +22,20 @@ interface InvoicesContextType {
 
 const InvoicesContext = createContext<InvoicesContextType | undefined>(undefined);
 
+const mockBusinessDetails = {
+  name: 'GemsAccurate Inc.',
+  address: '456 Gold Plaza, Jewel City',
+  phone: '+91 9988776655',
+  gstin: '29ABCDE1234F1Z5',
+};
+
 const mockInvoices: Invoice[] = [
   { 
     id: 'INV-2024001', customerName: 'Rohan Sharma', date: '2024-07-15', amount: 25000, status: 'Paid',
     items: [{ itemName: 'Gold Ring', qty: 1, grossWeight: 5, rate: 24000, makingChargeType: 'flat', makingChargeValue: 1000 }],
-    totals: { subtotal: 25000, discount: 0, gst: 0, total: 25000 },
+    totals: { subtotal: 25000, discount: 0, gst: 750, total: 25750 },
     customer: { id: 'CUST-001', name: 'Rohan Sharma', address: '123 Diamond Street, Jaipur', gstin: '08AAAAA0000A1Z5' },
-    business: { name: 'GemsAccurate Inc.', address: '456 Gold Plaza, Jewel City', phone: '+91 9988776655', gstin: '29ABCDE1234F1Z5' },
+    business: mockBusinessDetails,
     paymentMode: 'Cash'
   },
   { 
@@ -36,7 +43,7 @@ const mockInvoices: Invoice[] = [
     items: [{ itemName: 'Silver Chain', qty: 1, grossWeight: 50, rate: 15000, makingChargeType: 'percentage', makingChargeValue: 0 }],
     totals: { subtotal: 15000, discount: 0, gst: 0, total: 15000 },
     customer: { id: 'CUST-002', name: 'Priya Patel', address: '456 Ruby Lane, Mumbai', gstin: '' },
-    business: { name: 'GemsAccurate Inc.', address: '456 Gold Plaza, Jewel City', phone: '+91 9988776655', gstin: '29ABCDE1234F1Z5' },
+    business: mockBusinessDetails,
     paymentMode: 'Online'
   },
 ];
@@ -90,5 +97,3 @@ export function useInvoices() {
   }
   return context;
 }
-
-    
