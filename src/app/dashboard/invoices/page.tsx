@@ -151,7 +151,7 @@ export default function InvoiceGeneratorPage() {
         <CardHeader>
           <div className="flex justify-between items-start">
             <div>
-              <h1 className="text-3xl font-bold">{selectedCustomer?.gstin ? 'Invoice' : 'Cash Memo'}</h1>
+              <h1 className="text-3xl font-bold">{selectedCustomer?.gstin ? 'Tax Invoice' : 'Cash Memo'}</h1>
               <p>{mockBusinessDetails.name}</p>
               <p>{mockBusinessDetails.address}</p>
               <p>Phone: {mockBusinessDetails.phone}</p>
@@ -345,5 +345,7 @@ export default function InvoiceGeneratorPage() {
     </form>
   );
 }
+
+    
 
     
