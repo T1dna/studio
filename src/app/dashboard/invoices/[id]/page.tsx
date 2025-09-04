@@ -3,7 +3,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { useInvoices, Invoice, mockBusinessDetails } from '@/contexts/invoices-context';
+import { useInvoices, Invoice } from '@/contexts/invoices-context';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Printer } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -26,13 +26,7 @@ export default function InvoiceDetailPage() {
     if (!loading && id) {
       const foundInvoice = getInvoice(id);
       if (foundInvoice) {
-        // Ensure business and customer data are attached for safety
-        const safeInvoice = {
-            ...foundInvoice,
-            business: foundInvoice.business || mockBusinessDetails,
-            customer: foundInvoice.customer || { name: 'N/A', address: ''},
-        };
-        setInvoice(safeInvoice);
+        setInvoice(foundInvoice);
       } else {
         router.push('/dashboard/invoices');
       }
@@ -57,7 +51,14 @@ export default function InvoiceDetailPage() {
     );
   }
 
-  const { business, customer, items, totals } = invoice;
+  // Defensive rendering: ensure business, customer, items, and totals exist.
+  const { 
+    business = { name: 'N/A', address: '', phone: '' }, 
+    customer = { name: 'N/A', address: ''}, 
+    items = [], 
+    totals = { subtotal: 0, discount: 0, gst: 0, total: 0 } 
+  } = invoice;
+
   const isTaxInvoice = !!customer?.gstin;
 
   return (

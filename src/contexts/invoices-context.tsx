@@ -60,12 +60,13 @@ export function InvoicesProvider({ children }: { children: ReactNode }) {
       let storedInvoices = storedInvoicesRaw ? JSON.parse(storedInvoicesRaw) : null;
       
       if (storedInvoices) {
-        // Data repair: Ensure all invoices have business and customer data
+        // Data repair: Ensure all invoices have necessary data
         const repairedInvoices = storedInvoices.map((inv: Invoice) => ({
           ...inv,
           business: inv.business || mockBusinessDetails,
           customer: inv.customer || { name: inv.customerName || 'N/A', address: ''},
           items: Array.isArray(inv.items) ? inv.items : [],
+          totals: inv.totals || { subtotal: inv.amount || 0, discount: 0, gst: 0, total: inv.amount || 0 },
         }));
         setInvoices(repairedInvoices);
         // Save the repaired data back to localStorage
