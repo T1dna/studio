@@ -80,7 +80,7 @@ export default function InvoiceDetailPage() {
                         <p className="font-bold text-lg">{business.name}</p>
                         <p>{business.address}</p>
                         <p>Phone: {business.phone}</p>
-                        {business.gstin && <p>GSTIN: {business.gstin}</p>}
+                        {isTaxInvoice && business.gstin && <p>GSTIN: {business.gstin}</p>}
                     </div>
                     <div className="text-right space-y-1">
                         <p><span className="font-semibold">Invoice #:</span> {invoice.id}</p>
@@ -112,46 +112,42 @@ export default function InvoiceDetailPage() {
                             <TableHead>HSN</TableHead>
                             <TableHead>Gross Wt(g)</TableHead>
                             <TableHead>(Purity)</TableHead>
+                            <TableHead>Making Charge</TableHead>
                             <TableHead className="text-right">Rate</TableHead>
                             <TableHead className="text-right">Total</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {items.map((item: any, index: number) => (
-                            <TableRow key={index}>
-                                <TableCell>{index + 1}</TableCell>
-                                <TableCell>{item.itemName}</TableCell>
-                                <TableCell>{item.qty}</TableCell>
-                                <TableCell>{item.hsn || '-'}</TableCell>
-                                <TableCell>{item.grossWeight.toFixed(2)}</TableCell>
-                                <TableCell>{item.purity || '-'}</TableCell>
-                                <TableCell className="text-right">{formatCurrency(item.rate)}</TableCell>
-                                <TableCell className="text-right font-medium">{formatCurrency(item.qty * item.rate)}</TableCell>
-                            </TableRow>
-                        ))}
+                        {items.map((item: any, index: number) => {
+                            let chargeText = '-';
+                            switch (item.makingChargeType) {
+                                case 'percentage':
+                                    chargeText = `(${item.makingChargeValue}%)`;
+                                    break;
+                                case 'flat':
+                                    chargeText = `(Flat)`;
+                                    break;
+                                case 'per_gram':
+                                    chargeText = `(${formatCurrency(item.makingChargeValue)}/gm)`;
+                                    break;
+                            }
+
+                            return (
+                                <TableRow key={index}>
+                                    <TableCell>{index + 1}</TableCell>
+                                    <TableCell>{item.itemName}</TableCell>
+                                    <TableCell>{item.qty}</TableCell>
+                                    <TableCell>{item.hsn || '-'}</TableCell>
+                                    <TableCell>{item.grossWeight.toFixed(2)}</TableCell>
+                                    <TableCell>{item.purity || '-'}</TableCell>
+                                    <TableCell>{chargeText}</TableCell>
+                                    <TableCell className="text-right">{formatCurrency(item.rate)}</TableCell>
+                                    <TableCell className="text-right font-medium">{formatCurrency(item.qty * item.rate)}</TableCell>
+                                </TableRow>
+                            )
+                        })}
                     </TableBody>
                 </Table>
-                
-                 <div className="mt-4 text-sm">
-                    <p className="font-semibold">Making Charges:</p>
-                    {items.map((item: any, index: number) => {
-                         const baseAmount = item.qty * item.rate;
-                         let chargeText = '';
-                         switch (item.makingChargeType) {
-                            case 'percentage':
-                                chargeText = `(${item.makingChargeValue}%) on ${item.itemName}: ${formatCurrency(baseAmount * (item.makingChargeValue / 100))}`;
-                                break;
-                            case 'flat':
-                                chargeText = `(Flat) on ${item.itemName}: ${formatCurrency(item.makingChargeValue)}`;
-                                break;
-                            case 'per_gram':
-                                chargeText = `(${formatCurrency(item.makingChargeValue)}/gm) on ${item.itemName}: ${formatCurrency(item.makingChargeValue * item.grossWeight * item.qty)}`;
-                                break;
-                         }
-                         return <p key={index} className="ml-4 text-muted-foreground">{chargeText}</p>
-                    })}
-                </div>
-
             </CardContent>
 
             <CardFooter className="flex-col items-end gap-4">
