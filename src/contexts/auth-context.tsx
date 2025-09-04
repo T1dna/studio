@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
@@ -33,13 +34,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     try {
-      const storedUser = localStorage.getItem('gems-user');
+      const storedUser = sessionStorage.getItem('gems-user');
       if (storedUser) {
         setUser(JSON.parse(storedUser));
       }
     } catch (error) {
-      console.error("Failed to parse user from localStorage", error);
-      localStorage.removeItem('gems-user');
+      console.error("Failed to parse user from sessionStorage", error);
+      sessionStorage.removeItem('gems-user');
     } finally {
       setLoading(false);
     }
@@ -52,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (foundUser && foundUser.password_hash === password_raw) {
       const userData = { username: username.toLowerCase(), role: foundUser.role };
       setUser(userData);
-      localStorage.setItem('gems-user', JSON.stringify(userData));
+      sessionStorage.setItem('gems-user', JSON.stringify(userData));
       return true;
     }
     return false;
@@ -60,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('gems-user');
+    sessionStorage.removeItem('gems-user');
     router.push('/login');
   };
 
