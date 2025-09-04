@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PlusCircle, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useInvoices, mockBusinessDetails } from '@/contexts/invoices-context';
+import { useInvoices } from '@/contexts/invoices-context';
 import { useRouter } from 'next/navigation';
 
 // Mock Data
@@ -47,26 +47,19 @@ type ItemFormData = z.infer<typeof itemSchema>;
 
 
 const getItemTotal = (item: ItemFormData): number => {
-    const qty = Number(item.qty);
-    const rate = Number(item.rate);
-    const grossWeight = Number(item.grossWeight);
-    const makingChargeValue = Number(item.makingChargeValue);
-
-    if (isNaN(qty) || isNaN(rate)) {
-      return 0;
-    }
+    const qty = Number(item.qty) || 0;
+    const rate = Number(item.rate) || 0;
+    const grossWeight = Number(item.grossWeight) || 0;
+    const makingChargeValue = Number(item.makingChargeValue) || 0;
     
     const baseAmount = qty * rate;
 
     switch (item.makingChargeType) {
       case 'percentage':
-        if (isNaN(makingChargeValue)) return baseAmount;
         return baseAmount + (baseAmount * (makingChargeValue / 100));
       case 'flat':
-        if (isNaN(makingChargeValue)) return baseAmount;
         return baseAmount + makingChargeValue;
       case 'per_gram':
-        if (isNaN(makingChargeValue) || isNaN(grossWeight)) return baseAmount;
         return baseAmount + (makingChargeValue * grossWeight * qty);
       default:
         return baseAmount;
@@ -76,7 +69,7 @@ const getItemTotal = (item: ItemFormData): number => {
 
 export default function InvoiceGeneratorPage() {
   const { toast } = useToast();
-  const { addInvoice } = useInvoices();
+  const { addInvoice, businessDetails } = useInvoices();
   const router = useRouter();
   const [invoiceDate, setInvoiceDate] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
@@ -138,7 +131,7 @@ export default function InvoiceGeneratorPage() {
         status: 'Pending' as 'Paid' | 'Pending' | 'Overdue',
         ...data,
         customer: selectedCustomer,
-        business: mockBusinessDetails,
+        business: businessDetails,
         totals: {
             subtotal,
             discount: watchedDiscount,
@@ -164,10 +157,10 @@ export default function InvoiceGeneratorPage() {
           <div className="flex justify-between items-start">
             <div>
               <h1 className="text-3xl font-bold">{selectedCustomer?.gstin ? 'TAX Invoice' : 'Cash Memo'}</h1>
-              <p>{mockBusinessDetails.name}</p>
-              <p>{mockBusinessDetails.address}</p>
-              <p>Phone: {mockBusinessDetails.phone}</p>
-              {mockBusinessDetails.gstin && <p>GSTIN: {mockBusinessDetails.gstin}</p>}
+              <p>{businessDetails.name}</p>
+              <p>{businessDetails.address}</p>
+              <p>Phone: {businessDetails.phone}</p>
+              {businessDetails.gstin && <p>GSTIN: {businessDetails.gstin}</p>}
             </div>
             <div className="text-right space-y-2">
                 <div className="flex items-center justify-end gap-2">
@@ -305,7 +298,7 @@ export default function InvoiceGeneratorPage() {
                             <Input type="number" step="0.01" {...register(`items.${index}.makingChargeValue`)} className="flex-1"/>
                         </div>
                     </TableCell>
-                    <TableCell className="text-right font-medium">₹{getItemTotal(watchedItems[index] as ItemFormData).toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-medium">₹{(getItemTotal(watchedItems[index] as ItemFormData) || 0).toFixed(2)}</TableCell>
                     <TableCell>
                       <Button variant="ghost" size="icon" onClick={() => remove(index)} disabled={fields.length <= 1}>
                         <Trash2 className="h-4 w-4 text-destructive" />

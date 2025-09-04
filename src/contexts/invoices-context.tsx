@@ -1,9 +1,16 @@
 
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 
-export const mockBusinessDetails = {
+export interface BusinessDetails {
+  name: string;
+  address: string;
+  phone: string;
+  gstin?: string;
+}
+
+const defaultBusinessDetails: BusinessDetails = {
   name: 'Bhagya Shree Jewellers',
   address: 'JP Market, In Front of High School Gate No. 01, Bherunda (Nasrullaganj)',
   phone: '+91 9988776655',
@@ -25,6 +32,8 @@ interface InvoicesContextType {
   addInvoice: (invoice: Invoice) => void;
   getInvoice: (id: string) => Invoice | undefined;
   loading: boolean;
+  businessDetails: BusinessDetails;
+  updateBusinessDetails: (details: BusinessDetails) => void;
 }
 
 const InvoicesContext = createContext<InvoicesContextType | undefined>(undefined);
@@ -36,7 +45,6 @@ const mockInvoices: Invoice[] = [
     items: [{ itemName: 'Gold Ring', qty: 1, grossWeight: 5, rate: 24000, makingChargeType: 'flat', makingChargeValue: 1000 }],
     totals: { subtotal: 25000, discount: 0, gst: 750, total: 25750 },
     customer: { id: 'CUST-001', name: 'Rohan Sharma', address: '123 Diamond Street, Jaipur', gstin: '08AAAAA0000A1Z5' },
-    business: mockBusinessDetails,
     paymentMode: 'Cash'
   },
   { 
@@ -44,7 +52,6 @@ const mockInvoices: Invoice[] = [
     items: [{ itemName: 'Silver Chain', qty: 1, grossWeight: 50, rate: 15000, makingChargeType: 'percentage', makingChargeValue: 0 }],
     totals: { subtotal: 15000, discount: 0, gst: 0, total: 15000 },
     customer: { id: 'CUST-002', name: 'Priya Patel', address: '456 Ruby Lane, Mumbai', gstin: '' },
-    business: mockBusinessDetails,
     paymentMode: 'Online'
   },
 ];
@@ -52,35 +59,50 @@ const mockInvoices: Invoice[] = [
 
 export function InvoicesProvider({ children }: { children: ReactNode }) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [businessDetails, setBusinessDetails] = useState<BusinessDetails>(defaultBusinessDetails);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     try {
+      // Load business details
+      const storedBusinessDetailsRaw = localStorage.getItem('gems-business-details');
+      const storedBusinessDetails = storedBusinessDetailsRaw ? JSON.parse(storedBusinessDetailsRaw) : null;
+      if (storedBusinessDetails) {
+        setBusinessDetails(storedBusinessDetails);
+      } else {
+        localStorage.setItem('gems-business-details', JSON.stringify(defaultBusinessDetails));
+      }
+      
+      // Load invoices
       const storedInvoicesRaw = localStorage.getItem('gems-invoices');
       let storedInvoices = storedInvoicesRaw ? JSON.parse(storedInvoicesRaw) : null;
       
+      const finalBusinessDetails = storedBusinessDetails || defaultBusinessDetails;
+
       if (storedInvoices) {
         // Data repair: Ensure all invoices have necessary data
         const repairedInvoices = storedInvoices.map((inv: Invoice) => ({
           ...inv,
-          business: inv.business || mockBusinessDetails,
+          business: inv.business || finalBusinessDetails,
           customer: inv.customer || { name: inv.customerName || 'N/A', address: ''},
           items: Array.isArray(inv.items) ? inv.items : [],
           totals: inv.totals || { subtotal: inv.amount || 0, discount: 0, gst: 0, total: inv.amount || 0 },
         }));
         setInvoices(repairedInvoices);
-        // Save the repaired data back to localStorage
         localStorage.setItem('gems-invoices', JSON.stringify(repairedInvoices));
       } else {
-        // If no invoices in storage, start with mock data
-        setInvoices(mockInvoices);
-        localStorage.setItem('gems-invoices', JSON.stringify(mockInvoices));
+        // If no invoices in storage, start with mock data and add business details
+        const initialInvoices = mockInvoices.map(inv => ({...inv, business: finalBusinessDetails}));
+        setInvoices(initialInvoices);
+        localStorage.setItem('gems-invoices', JSON.stringify(initialInvoices));
       }
     } catch (error) {
-      console.error("Failed to parse invoices from localStorage", error);
+      console.error("Failed to parse data from localStorage", error);
       // Fallback to mock data if storage is corrupt
-      setInvoices(mockInvoices);
-      localStorage.setItem('gems-invoices', JSON.stringify(mockInvoices));
+      const initialInvoices = mockInvoices.map(inv => ({...inv, business: defaultBusinessDetails}));
+      setInvoices(initialInvoices);
+      localStorage.setItem('gems-invoices', JSON.stringify(initialInvoices));
+      localStorage.setItem('gems-business-details', JSON.stringify(defaultBusinessDetails));
     } finally {
       setLoading(false);
     }
@@ -95,9 +117,14 @@ export function InvoicesProvider({ children }: { children: ReactNode }) {
   const getInvoice = (id: string): Invoice | undefined => {
     return invoices.find(invoice => invoice.id === id);
   }
+  
+  const updateBusinessDetails = useCallback((details: BusinessDetails) => {
+      setBusinessDetails(details);
+      localStorage.setItem('gems-business-details', JSON.stringify(details));
+  }, []);
 
   return (
-    <InvoicesContext.Provider value={{ invoices, addInvoice, getInvoice, loading }}>
+    <InvoicesContext.Provider value={{ invoices, addInvoice, getInvoice, loading, businessDetails, updateBusinessDetails }}>
       {children}
     </InvoicesContext.Provider>
   );

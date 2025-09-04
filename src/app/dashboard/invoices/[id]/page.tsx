@@ -128,7 +128,7 @@ export default function InvoiceDetailPage() {
                                     chargeText = `(Flat)`;
                                     break;
                                 case 'per_gram':
-                                    chargeText = `(${formatCurrency(item.makingChargeValue)}/gm)`;
+                                    chargeText = `(₹${item.makingChargeValue}/gm)`;
                                     break;
                             }
 
