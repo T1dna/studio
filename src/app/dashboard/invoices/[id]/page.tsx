@@ -109,7 +109,7 @@ export default function InvoiceDetailPage() {
                             <TableHead className="w-[40px]">SN</TableHead>
                             <TableHead>Item Name</TableHead>
                             <TableHead>Qty</TableHead>
-                            <TableHead>HSN</TableHead>
+                            {isTaxInvoice && <TableHead>HSN</TableHead>}
                             <TableHead>Gross Wt(g)</TableHead>
                             <TableHead>(Purity)</TableHead>
                             <TableHead>Making Charge</TableHead>
@@ -137,7 +137,7 @@ export default function InvoiceDetailPage() {
                                     <TableCell>{index + 1}</TableCell>
                                     <TableCell>{item.itemName}</TableCell>
                                     <TableCell>{item.qty}</TableCell>
-                                    <TableCell>{item.hsn || '-'}</TableCell>
+                                    {isTaxInvoice && <TableCell>{item.hsn || '-'}</TableCell>}
                                     <TableCell>{item.grossWeight.toFixed(2)}</TableCell>
                                     <TableCell>{item.purity || '-'}</TableCell>
                                     <TableCell>{chargeText}</TableCell>
