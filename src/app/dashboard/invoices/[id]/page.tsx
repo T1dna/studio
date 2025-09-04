@@ -16,7 +16,7 @@ export default function InvoiceDetailPage() {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
-  const { getInvoice, loading } = useInvoices();
+  const { getInvoice, loading, businessDetails } = useInvoices();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
 
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
@@ -51,9 +51,9 @@ export default function InvoiceDetailPage() {
     );
   }
 
-  // Defensive rendering: ensure business, customer, items, and totals exist.
+  // Defensive rendering: ensure customer, items, and totals exist.
+  // Use businessDetails from context directly.
   const { 
-    business = { name: 'N/A', address: '', phone: '' }, 
     customer = { name: 'N/A', address: ''}, 
     items = [], 
     totals = { subtotal: 0, discount: 0, gst: 0, total: 0 } 
@@ -77,10 +77,10 @@ export default function InvoiceDetailPage() {
                 <div className="flex justify-between items-start">
                     <div>
                         <h1 className="text-3xl font-bold">{isTaxInvoice ? 'TAX Invoice' : 'Cash Memo'}</h1>
-                        <p className="font-bold text-lg">{business.name}</p>
-                        <p>{business.address}</p>
-                        <p>Phone: {business.phone}</p>
-                        {isTaxInvoice && business.gstin && <p>GSTIN: {business.gstin}</p>}
+                        <p className="font-bold text-lg">{businessDetails.name}</p>
+                        <p>{businessDetails.address}</p>
+                        <p>Phone: {businessDetails.phone}</p>
+                        {isTaxInvoice && businessDetails.gstin && <p>GSTIN: {businessDetails.gstin}</p>}
                     </div>
                     <div className="text-right space-y-1">
                         <p><span className="font-semibold">Invoice #:</span> {invoice.id}</p>
