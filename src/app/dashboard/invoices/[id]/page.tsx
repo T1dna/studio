@@ -35,7 +35,11 @@ export default function InvoiceDetailPage() {
   
   useEffect(() => {
     if (invoice && shouldPrint) {
-      setTimeout(() => window.print(), 500); // Timeout to allow content to render
+      // Small timeout to ensure content has rendered before printing
+      const timer = setTimeout(() => {
+        window.print();
+      }, 500);
+      return () => clearTimeout(timer);
     }
   }, [invoice, shouldPrint]);
 
@@ -51,10 +55,8 @@ export default function InvoiceDetailPage() {
     );
   }
 
-  // Defensive rendering: ensure customer, items, and totals exist.
-  // Use businessDetails from context directly.
   const { 
-    customer = { name: 'N/A', address: ''}, 
+    customer = { name: 'N/A', address: '', gstin: '' }, 
     items = [], 
     totals = { subtotal: 0, discount: 0, gst: 0, total: 0 } 
   } = invoice;
