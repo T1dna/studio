@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PlusCircle, Search, MoreHorizontal, FileText, Printer } from "lucide-react";
+import { PlusCircle, Search, MoreHorizontal, FileText, Printer, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -24,6 +24,19 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useInvoices, Invoice } from '@/contexts/invoices-context';
 import { useRouter } from 'next/navigation';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { useToast } from '@/hooks/use-toast';
+
 
 const getStatusVariant = (status: Invoice['status']): "default" | "secondary" | "destructive" => {
     switch (status) {
@@ -35,9 +48,12 @@ const getStatusVariant = (status: Invoice['status']): "default" | "secondary" | 
 }
 
 export default function InvoicesPage() {
-  const { invoices } = useInvoices();
+  const { invoices, deleteInvoice } = useInvoices();
   const [searchTerm, setSearchTerm] = useState('');
   const router = useRouter();
+  const { toast } = useToast();
+  const [invoiceToDelete, setInvoiceToDelete] = useState<string | null>(null);
+
 
   const filteredInvoices = useMemo(() => {
     const term = searchTerm.toLowerCase();
@@ -57,7 +73,18 @@ export default function InvoicesPage() {
     router.push(`/dashboard/invoices/${invoiceId}?print=true`);
   };
 
+  const handleDelete = (invoiceId: string) => {
+    deleteInvoice(invoiceId);
+    toast({
+        variant: 'destructive',
+        title: 'Invoice Deleted',
+        description: `Invoice ${invoiceId} has been successfully deleted.`
+    });
+    setInvoiceToDelete(null);
+  }
+
   return (
+    <>
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between gap-4">
@@ -121,6 +148,13 @@ export default function InvoicesPage() {
                             <Printer className="mr-2 h-4 w-4" />
                             Print
                         </DropdownMenuItem>
+                         <DropdownMenuItem 
+                            className="text-destructive" 
+                            onClick={() => setInvoiceToDelete(invoice.id)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                        </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
                     </TableCell>
@@ -137,5 +171,27 @@ export default function InvoicesPage() {
         </Table>
       </CardContent>
     </Card>
+
+    <AlertDialog open={!!invoiceToDelete} onOpenChange={(isOpen) => !isOpen && setInvoiceToDelete(null)}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the invoice
+                and all of its associated data from our servers.
+            </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setInvoiceToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+                className="bg-destructive hover:bg-destructive/90"
+                onClick={() => handleDelete(invoiceToDelete!)}
+            >
+                Delete
+            </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

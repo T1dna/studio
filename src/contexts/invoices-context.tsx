@@ -30,6 +30,7 @@ export interface Invoice {
 interface InvoicesContextType {
   invoices: Invoice[];
   addInvoice: (invoice: Invoice) => void;
+  deleteInvoice: (id: string) => void;
   getInvoice: (id: string) => Invoice | undefined;
   loading: boolean;
   businessDetails: BusinessDetails;
@@ -113,6 +114,12 @@ export function InvoicesProvider({ children }: { children: ReactNode }) {
     setInvoices(updatedInvoices);
     localStorage.setItem('gems-invoices', JSON.stringify(updatedInvoices));
   };
+  
+  const deleteInvoice = (id: string) => {
+    const updatedInvoices = invoices.filter(invoice => invoice.id !== id);
+    setInvoices(updatedInvoices);
+    localStorage.setItem('gems-invoices', JSON.stringify(updatedInvoices));
+  };
 
   const getInvoice = (id: string): Invoice | undefined => {
     return invoices.find(invoice => invoice.id === id);
@@ -124,7 +131,7 @@ export function InvoicesProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <InvoicesContext.Provider value={{ invoices, addInvoice, getInvoice, loading, businessDetails, updateBusinessDetails }}>
+    <InvoicesContext.Provider value={{ invoices, addInvoice, deleteInvoice, getInvoice, loading, businessDetails, updateBusinessDetails }}>
       {children}
     </InvoicesContext.Provider>
   );
