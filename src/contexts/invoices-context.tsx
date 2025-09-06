@@ -24,6 +24,7 @@ export interface Invoice {
   date: string;
   amount: number;
   status: 'Paid' | 'Pending' | 'Overdue';
+  isDeleted?: boolean;
   [key: string]: any; // Allow for other properties
 }
 
@@ -31,6 +32,7 @@ interface InvoicesContextType {
   invoices: Invoice[];
   addInvoice: (invoice: Invoice) => void;
   deleteInvoice: (id: string) => void;
+  recoverInvoice: (id: string) => void;
   getInvoice: (id: string) => Invoice | undefined;
   loading: boolean;
   businessDetails: BusinessDetails;
@@ -84,6 +86,7 @@ export function InvoicesProvider({ children }: { children: ReactNode }) {
         // Data repair: Ensure all invoices have necessary data
         const repairedInvoices = storedInvoices.map((inv: Invoice) => ({
           ...inv,
+          isDeleted: inv.isDeleted || false,
           business: inv.business || finalBusinessDetails,
           customer: inv.customer || { name: inv.customerName || 'N/A', address: ''},
           items: Array.isArray(inv.items) ? inv.items : [],
@@ -93,14 +96,14 @@ export function InvoicesProvider({ children }: { children: ReactNode }) {
         localStorage.setItem('gems-invoices', JSON.stringify(repairedInvoices));
       } else {
         // If no invoices in storage, start with mock data and add business details
-        const initialInvoices = mockInvoices.map(inv => ({...inv, business: finalBusinessDetails}));
+        const initialInvoices = mockInvoices.map(inv => ({...inv, business: finalBusinessDetails, isDeleted: false}));
         setInvoices(initialInvoices);
         localStorage.setItem('gems-invoices', JSON.stringify(initialInvoices));
       }
     } catch (error) {
       console.error("Failed to parse data from localStorage", error);
       // Fallback to mock data if storage is corrupt
-      const initialInvoices = mockInvoices.map(inv => ({...inv, business: defaultBusinessDetails}));
+      const initialInvoices = mockInvoices.map(inv => ({...inv, business: defaultBusinessDetails, isDeleted: false}));
       setInvoices(initialInvoices);
       localStorage.setItem('gems-invoices', JSON.stringify(initialInvoices));
       localStorage.setItem('gems-business-details', JSON.stringify(defaultBusinessDetails));
@@ -110,13 +113,23 @@ export function InvoicesProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addInvoice = (invoice: Invoice) => {
-    const updatedInvoices = [...invoices, invoice];
+    const updatedInvoices = [...invoices, { ...invoice, isDeleted: false }];
     setInvoices(updatedInvoices);
     localStorage.setItem('gems-invoices', JSON.stringify(updatedInvoices));
   };
   
   const deleteInvoice = (id: string) => {
-    const updatedInvoices = invoices.filter(invoice => invoice.id !== id);
+    const updatedInvoices = invoices.map(invoice => 
+        invoice.id === id ? { ...invoice, isDeleted: true } : invoice
+    );
+    setInvoices(updatedInvoices);
+    localStorage.setItem('gems-invoices', JSON.stringify(updatedInvoices));
+  };
+
+  const recoverInvoice = (id: string) => {
+    const updatedInvoices = invoices.map(invoice =>
+        invoice.id === id ? { ...invoice, isDeleted: false } : invoice
+    );
     setInvoices(updatedInvoices);
     localStorage.setItem('gems-invoices', JSON.stringify(updatedInvoices));
   };
@@ -131,7 +144,7 @@ export function InvoicesProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <InvoicesContext.Provider value={{ invoices, addInvoice, deleteInvoice, getInvoice, loading, businessDetails, updateBusinessDetails }}>
+    <InvoicesContext.Provider value={{ invoices, addInvoice, deleteInvoice, recoverInvoice, getInvoice, loading, businessDetails, updateBusinessDetails }}>
       {children}
     </InvoicesContext.Provider>
   );
