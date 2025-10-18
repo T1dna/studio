@@ -307,8 +307,8 @@ export default function EditInvoicePage() {
                   <TableHead className="min-w-[120px]">Gross Wt(g)</TableHead>
                   <TableHead className="min-w-[120px]">Net Wt(g)</TableHead>
                   <TableHead className="min-w-[100px]">(Purity)</TableHead>
-                  <TableHead className="min-w-[200px]">Making Charges</TableHead>
                   <TableHead className="min-w-[120px]">Rate</TableHead>
+                  <TableHead className="min-w-[200px]">Making Charges</TableHead>
                   <TableHead className="min-w-[120px] text-right">Total</TableHead>
                   {selectedCustomer?.gstin && <TableHead className="w-[50px]">Tax?</TableHead>}
                   <TableHead className="w-[50px]"></TableHead>
@@ -340,6 +340,9 @@ export default function EditInvoicePage() {
                       <Input type="text" {...register(`items.${index}.purity`)} placeholder="e.g., 22K" />
                     </TableCell>
                     <TableCell>
+                      <Input type="number" step="0.001" {...register(`items.${index}.rate`)} />
+                    </TableCell>
+                    <TableCell>
                         <div className="flex gap-1">
                             <Controller
                                 name={`items.${index}.makingChargeType`}
@@ -359,9 +362,6 @@ export default function EditInvoicePage() {
                             />
                             <Input type="number" step="0.01" {...register(`items.${index}.makingChargeValue`)} className="flex-1"/>
                         </div>
-                    </TableCell>
-                    <TableCell>
-                      <Input type="number" step="0.001" {...register(`items.${index}.rate`)} />
                     </TableCell>
                     <TableCell className="text-right font-medium">₹{getItemTotal(watchedItems[index]).toFixed(2)}</TableCell>
                     {selectedCustomer?.gstin && 

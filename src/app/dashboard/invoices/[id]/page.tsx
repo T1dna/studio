@@ -150,8 +150,8 @@ export default function InvoiceDetailPage() {
                             {showGrossWeightColumn && <TableHead>Gross Wt(g)</TableHead>}
                             <TableHead>Net Wt(g)</TableHead>
                             <TableHead>(Purity)</TableHead>
+                            <TableHead>Rate</TableHead>
                             <TableHead>Making Charge</TableHead>
-                            <TableHead className="text-right">Rate</TableHead>
                             <TableHead className="text-right">Total</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -182,8 +182,8 @@ export default function InvoiceDetailPage() {
                                     {showGrossWeightColumn && <TableCell>{item.grossWeight ? formatWeight(Number(item.grossWeight)) : '-'}</TableCell>}
                                     <TableCell>{formatWeight(Number(item.netWeight))}</TableCell>
                                     <TableCell>{item.purity || '-'}</TableCell>
-                                    <TableCell>{chargeText}</TableCell>
                                     <TableCell className="text-right">{formatRate(Number(item.rate))}</TableCell>
+                                    <TableCell>{chargeText}</TableCell>
                                     <TableCell className="text-right font-medium">
                                         {formatCurrency(itemTotal)}
                                         {isTaxInvoice && item.applyGst && <span className="text-xs text-muted-foreground ml-1">(Taxed)</span>}
