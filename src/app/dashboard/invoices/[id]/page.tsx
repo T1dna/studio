@@ -11,6 +11,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 
 // Helper function to format currency
 const formatCurrency = (amount: number) => `₹${amount.toFixed(2)}`;
+const formatWeight = (weight: number) => weight.toFixed(3);
+const formatRate = (rate: number) => `₹${rate.toFixed(3)}`;
+
 
 export default function InvoiceDetailPage() {
   const router = useRouter();
@@ -63,6 +66,8 @@ export default function InvoiceDetailPage() {
 
   const isTaxInvoice = !!customer?.gstin;
   const showGrossWeightColumn = items.some((item: any) => item.grossWeight && item.grossWeight > 0);
+  const cgst = totals.gst / 2;
+  const sgst = totals.gst / 2;
 
   const getItemTotal = (item: any): number => {
     const rate = Number(item.rate) || 0;
@@ -104,14 +109,14 @@ export default function InvoiceDetailPage() {
         <Card className="w-full max-w-4xl mx-auto print:shadow-none print:border-none">
             <CardHeader>
                 <div className="text-center mb-4">
-                    <h1 className="text-xl font-bold">{isTaxInvoice ? 'TAX Invoice' : 'Cash Memo'}</h1>
+                    <h1 className="text-lg font-bold">{isTaxInvoice ? 'TAX Invoice' : 'Cash Memo'}</h1>
                 </div>
                 <div className="flex justify-between items-start">
                     <div>
-                        <p className="font-bold text-xl">{businessDetails.name}</p>
-                        <p className="text-base">{businessDetails.address}</p>
-                        <p className="text-base">Phone: {businessDetails.phone}</p>
-                        {isTaxInvoice && businessDetails.gstin && <p className="text-base">GSTIN / PAN: {businessDetails.gstin}</p>}
+                        <p className="font-bold text-2xl">{businessDetails.name}</p>
+                        <p className="text-lg">{businessDetails.address}</p>
+                        <p className="text-lg">Phone: {businessDetails.phone}</p>
+                        {isTaxInvoice && businessDetails.gstin && <p className="text-lg">GSTIN / PAN: {businessDetails.gstin}</p>}
                     </div>
                     <div className="text-right space-y-1">
                         <p><span className="font-semibold">Invoice #:</span> {invoice.id}</p>
@@ -171,11 +176,11 @@ export default function InvoiceDetailPage() {
                                     <TableCell>{item.itemName}</TableCell>
                                     <TableCell>{item.qty}</TableCell>
                                     {isTaxInvoice && <TableCell>{item.hsn || '-'}</TableCell>}
-                                    {showGrossWeightColumn && <TableCell>{item.grossWeight ? item.grossWeight.toFixed(2) : '-'}</TableCell>}
-                                    <TableCell>{item.netWeight.toFixed(2)}</TableCell>
+                                    {showGrossWeightColumn && <TableCell>{item.grossWeight ? formatWeight(item.grossWeight) : '-'}</TableCell>}
+                                    <TableCell>{formatWeight(item.netWeight)}</TableCell>
                                     <TableCell>{item.purity || '-'}</TableCell>
                                     <TableCell>{chargeText}</TableCell>
-                                    <TableCell className="text-right">{formatCurrency(item.rate)}</TableCell>
+                                    <TableCell className="text-right">{formatRate(item.rate)}</TableCell>
                                     <TableCell className="text-right font-medium">
                                         {formatCurrency(itemTotal)}
                                         {isTaxInvoice && item.applyGst && <span className="text-xs text-muted-foreground ml-1">(Taxed)</span>}
@@ -198,10 +203,16 @@ export default function InvoiceDetailPage() {
                         <span>- {formatCurrency(totals.discount)}</span>
                     </div>
                     {isTaxInvoice && (
+                        <>
                         <div className="flex justify-between">
-                        <span>GST (3%):</span>
-                        <span>{formatCurrency(totals.gst)}</span>
+                            <span>CGST (1.5%):</span>
+                            <span>{formatCurrency(cgst)}</span>
                         </div>
+                        <div className="flex justify-between">
+                            <span>SGST (1.5%):</span>
+                            <span>{formatCurrency(sgst)}</span>
+                        </div>
+                        </>
                     )}
                     <hr className="my-2"/>
                     <div className="flex justify-between text-lg font-bold">

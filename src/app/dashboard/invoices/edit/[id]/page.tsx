@@ -161,6 +161,9 @@ export default function EditInvoicePage() {
   const { subtotal, gst, total } = useMemo(() => {
     return calculateTotals(watchedItems, selectedCustomer?.gstin, watchedDiscount);
   }, [watchedItems, selectedCustomer, watchedDiscount, calculateTotals]);
+
+  const cgst = gst / 2;
+  const sgst = gst / 2;
   
   const onSubmit = (data: InvoiceFormData) => {
     if (!id) return;
@@ -205,11 +208,11 @@ export default function EditInvoicePage() {
         <CardHeader>
           <div className="flex justify-between items-start">
             <div>
-              <h1 className="text-xl text-center font-bold w-full mb-4">{selectedCustomer?.gstin ? 'TAX Invoice' : 'Cash Memo'}</h1>
-              <p className="text-xl font-bold">{businessDetails.name}</p>
-              <p className="text-base">{businessDetails.address}</p>
-              <p className="text-base">Phone: {businessDetails.phone}</p>
-              {businessDetails.gstin && <p className="text-base">GSTIN / PAN: {businessDetails.gstin}</p>}
+              <h1 className="text-lg font-bold text-center w-full mb-4">{selectedCustomer?.gstin ? 'TAX Invoice' : 'Cash Memo'}</h1>
+              <p className="text-2xl font-bold">{businessDetails.name}</p>
+              <p className="text-lg">{businessDetails.address}</p>
+              <p className="text-lg">Phone: {businessDetails.phone}</p>
+              {businessDetails.gstin && <p className="text-lg">GSTIN / PAN: {businessDetails.gstin}</p>}
             </div>
             <div className="text-right space-y-2">
                 <div className="flex items-center justify-end gap-2">
@@ -328,16 +331,16 @@ export default function EditInvoicePage() {
                         </TableCell>
                     }
                     <TableCell>
-                      <Input type="number" step="0.01" {...register(`items.${index}.grossWeight`)} />
+                      <Input type="number" step="0.001" {...register(`items.${index}.grossWeight`)} />
                     </TableCell>
                     <TableCell>
-                      <Input type="number" step="0.01" {...register(`items.${index}.netWeight`)} />
+                      <Input type="number" step="0.001" {...register(`items.${index}.netWeight`)} />
                     </TableCell>
                     <TableCell>
                       <Input type="text" {...register(`items.${index}.purity`)} placeholder="e.g., 22K" />
                     </TableCell>
                     <TableCell>
-                      <Input type="number" step="0.01" {...register(`items.${index}.rate`)} />
+                      <Input type="number" step="0.001" {...register(`items.${index}.rate`)} />
                     </TableCell>
                     <TableCell>
                         <div className="flex gap-1">
@@ -410,10 +413,16 @@ export default function EditInvoicePage() {
                 <Input id="discount" type="number" {...register('discount')} className="w-32" placeholder="e.g., 100"/>
               </div>
               {selectedCustomer?.gstin && (
-                <div className="flex justify-between">
-                  <span>GST (3%):</span>
-                  <span>₹{gst.toFixed(2)}</span>
-                </div>
+                <>
+                  <div className="flex justify-between">
+                    <span>CGST (1.5%):</span>
+                    <span>₹{cgst.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>SGST (1.5%):</span>
+                    <span>₹{sgst.toFixed(2)}</span>
+                  </div>
+                </>
               )}
               <hr/>
               <div className="flex justify-between text-xl font-bold">
