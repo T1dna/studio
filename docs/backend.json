@@ -63,7 +63,7 @@
         },
         "gstin": {
           "type": "string",
-          "description": "GSTIN registration number."
+          "description": "GSTIN or PAN registration number."
         },
         "invoiceCounterCash": {
           "type": "number",
@@ -112,7 +112,7 @@
         },
         "gstin": {
           "type": "string",
-          "description": "Customer's GSTIN number."
+          "description": "Customer's GSTIN or PAN number."
         },
         "paymentTerms": {
           "type": "number",

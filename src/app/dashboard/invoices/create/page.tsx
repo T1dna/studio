@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -15,8 +15,6 @@ import { PlusCircle, Trash2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useInvoices } from '@/contexts/invoices-context';
 import { useRouter } from 'next/navigation';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, CollectionReference } from 'firebase/firestore';
 
 type Customer = {
   id: string;
@@ -52,7 +50,6 @@ type ItemFormData = z.infer<typeof itemSchema>;
 
 
 const getItemTotal = (item: Partial<ItemFormData>): number => {
-    const qty = Number(item.qty) || 0;
     const rate = Number(item.rate) || 0;
     const grossWeight = Number(item.grossWeight) || 0;
     const makingChargeValue = Number(item.makingChargeValue) || 0;
@@ -73,7 +70,7 @@ const getItemTotal = (item: Partial<ItemFormData>): number => {
             break;
         case 'per_gram':
             if (grossWeight > 0) {
-                makingCharge = makingChargeValue * grossWeight * qty;
+                makingCharge = makingChargeValue * grossWeight;
             }
             break;
         }
@@ -90,13 +87,23 @@ export default function InvoiceGeneratorPage() {
   const [invoiceDate, setInvoiceDate] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
   
-  const firestore = useFirestore();
-  const customersCollection = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return collection(firestore, 'customers') as CollectionReference<Omit<Customer, 'id'>>;
-  }, [firestore]);
-  const { data: customers, isLoading: customersLoading } = useCollection<Omit<Customer, 'id'>>(customersCollection);
-
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customersLoading, setCustomersLoading] = useState(true);
+  
+  useEffect(() => {
+    try {
+      setCustomersLoading(true);
+      const storedCustomersRaw = localStorage.getItem('gems-customers');
+      if (storedCustomersRaw) {
+        setCustomers(JSON.parse(storedCustomersRaw));
+      }
+    } catch (error) {
+      console.error("Failed to parse customers from localStorage", error);
+      setCustomers([]);
+    } finally {
+        setCustomersLoading(false);
+    }
+  }, []);
 
   const form = useForm<InvoiceFormData>({
     resolver: zodResolver(invoiceSchema),
@@ -115,6 +122,7 @@ export default function InvoiceGeneratorPage() {
       }],
       discount: 0
     },
+     mode: 'onChange',
   });
 
   const { register, control, handleSubmit, watch, formState: { errors } } = form;
@@ -124,19 +132,21 @@ export default function InvoiceGeneratorPage() {
   const watchedDiscount = watch('discount') || 0;
   const watchedCustomerId = watch('customerId');
   
-  const selectedCustomer = customers?.find(c => c.id === watchedCustomerId) || null;
+  const selectedCustomer = useMemo(() => 
+    customers.find(c => c.id === watchedCustomerId) || null,
+    [customers, watchedCustomerId]
+  );
   
-  const { subtotal, gst, total } = useMemo(() => {
-    const currentSubtotal = watchedItems.reduce((acc, item) => acc + getItemTotal(item), 0);
-    const currentGst = selectedCustomer?.gstin ? currentSubtotal * 0.03 : 0;
-    const currentTotal = currentSubtotal + currentGst - (watchedDiscount || 0);
+  const calculateTotals = useCallback((items: Partial<ItemFormData>[], customerGstin?: string | null, discount?: number) => {
+    const subtotal = items.reduce((acc, item) => acc + getItemTotal(item), 0);
+    const gst = customerGstin ? subtotal * 0.03 : 0;
+    const total = subtotal + gst - (discount || 0);
+    return { subtotal, gst, total };
+  }, []);
 
-    return {
-      subtotal: currentSubtotal,
-      gst: currentGst,
-      total: currentTotal
-    };
-  }, [watchedItems, selectedCustomer, watchedDiscount]);
+  const { subtotal, gst, total } = useMemo(() => {
+    return calculateTotals(watchedItems, selectedCustomer?.gstin, watchedDiscount);
+  }, [watchedItems, selectedCustomer, watchedDiscount, calculateTotals]);
   
   useEffect(() => {
     setInvoiceDate(new Date().toLocaleDateString('en-CA')); // YYYY-MM-DD format
@@ -181,7 +191,7 @@ export default function InvoiceGeneratorPage() {
               <p>{businessDetails.name}</p>
               <p>{businessDetails.address}</p>
               <p>Phone: {businessDetails.phone}</p>
-              {businessDetails.gstin && <p>GSTIN: {businessDetails.gstin}</p>}
+              {businessDetails.gstin && <p>GSTIN / PAN: {businessDetails.gstin}</p>}
             </div>
             <div className="text-right space-y-2">
                 <div className="flex items-center justify-end gap-2">
@@ -237,7 +247,7 @@ export default function InvoiceGeneratorPage() {
               {selectedCustomer && (
                 <div className="mt-2 text-sm text-muted-foreground">
                   <p>{selectedCustomer.address}</p>
-                  {selectedCustomer.gstin && <p>GSTIN: {selectedCustomer.gstin}</p>}
+                  {selectedCustomer.gstin && <p>GSTIN / PAN: {selectedCustomer.gstin}</p>}
                 </div>
               )}
                {errors.customerId && <p className="text-sm text-destructive mt-1">{errors.customerId.message}</p>}
@@ -387,7 +397,7 @@ export default function InvoiceGeneratorPage() {
                 </div>
             </div>
           <p className="text-center text-muted-foreground text-sm w-full">Thank You! Visit Again.</p>
-           <Button type="submit" className="w-full" size="lg" disabled={!form.formState.isValid || customersLoading}>Generate Invoice</Button>
+           <Button type="submit" className="w-full" size="lg" disabled={form.formState.isSubmitting || customersLoading}>Generate Invoice</Button>
         </CardFooter>
       </Card>
     </form>

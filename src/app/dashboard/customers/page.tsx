@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Table,
   TableBody,
@@ -37,31 +37,50 @@ import { collection, doc, addDoc, updateDoc, deleteDoc, CollectionReference, Doc
 type Customer = {
   id: string;
   name: string;
-  fatherName: string;
+  fatherName?: string;
   businessName?: string;
-  address: string;
-  number: string;
+  address?: string;
+  number?: string;
   gstin?: string;
 };
 
 export default function CustomersPage() {
   const { toast } = useToast();
   const firestore = useFirestore();
-  
-  const customersCollection = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return collection(firestore, 'customers') as CollectionReference<Omit<Customer, 'id'>>;
-  }, [firestore]);
-
-  const { data: customers, isLoading, error } = useCollection<Omit<Customer, 'id'>>(customersCollection);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  
+  useEffect(() => {
+    try {
+      setLoading(true);
+      const storedCustomersRaw = localStorage.getItem('gems-customers');
+      if (storedCustomersRaw) {
+        setCustomers(JSON.parse(storedCustomersRaw));
+      } else {
+        // You might want to initialize with some default data or leave it empty
+        setCustomers([]);
+      }
+    } catch (error) {
+      console.error("Failed to parse customers from localStorage", error);
+      setCustomers([]);
+    } finally {
+        setLoading(false);
+    }
+  }, []);
+
+  const updateCustomersStateAndStorage = (newCustomers: Customer[]) => {
+    setCustomers(newCustomers);
+    localStorage.setItem('gems-customers', JSON.stringify(newCustomers));
+  };
+
 
   const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!firestore || !customersCollection) return;
+    if (!firestore) return;
 
     const formData = new FormData(e.currentTarget);
     const newCustomerData: { [key: string]: any } = {
@@ -80,18 +99,22 @@ export default function CustomersPage() {
     if (gstin) {
       newCustomerData.gstin = gstin;
     }
-
+    
     try {
-      if (editingCustomer) {
-        const customerDocRef = doc(firestore, 'customers', editingCustomer.id);
-        await updateDoc(customerDocRef, newCustomerData);
-        toast({ title: "Customer Updated", description: "The customer's details have been successfully updated." });
-      } else {
-        await addDoc(customersCollection, newCustomerData);
-        toast({ title: "Customer Added", description: "A new customer has been successfully added." });
-      }
-      setIsFormOpen(false);
-      setEditingCustomer(null);
+        if (editingCustomer) {
+            const updatedCustomer = { ...editingCustomer, ...newCustomerData };
+            const updatedCustomers = customers.map(c => c.id === editingCustomer.id ? updatedCustomer : c);
+            updateCustomersStateAndStorage(updatedCustomers);
+            toast({ title: "Customer Updated", description: "The customer's details have been successfully updated." });
+        } else {
+            const newId = `CUST-${Date.now()}`;
+            const finalNewCustomer = { id: newId, ...newCustomerData } as Customer;
+            const updatedCustomers = [...customers, finalNewCustomer];
+            updateCustomersStateAndStorage(updatedCustomers);
+            toast({ title: "Customer Added", description: "A new customer has been successfully added." });
+        }
+        setIsFormOpen(false);
+        setEditingCustomer(null);
     } catch (err) {
       console.error(err);
       toast({ variant: 'destructive', title: "Error", description: "Could not save customer details." });
@@ -105,10 +128,10 @@ export default function CustomersPage() {
   
   const handleDelete = async (customerId: string) => {
     if (!firestore) return;
-    const customerDocRef = doc(firestore, 'customers', customerId);
     try {
-      await deleteDoc(customerDocRef);
-      toast({ variant: 'destructive', title: "Customer Deleted", description: "The customer has been removed." });
+        const updatedCustomers = customers.filter(c => c.id !== customerId);
+        updateCustomersStateAndStorage(updatedCustomers);
+        toast({ variant: 'destructive', title: "Customer Deleted", description: "The customer has been removed." });
     } catch (err) {
        console.error(err);
        toast({ variant: 'destructive', title: "Error", description: "Could not delete customer." });
@@ -184,7 +207,7 @@ export default function CustomersPage() {
                         <Input id="number" name="number" defaultValue={editingCustomer?.number} className="col-span-3" />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="gstin" className="text-right">GSTIN</Label>
+                        <Label htmlFor="gstin" className="text-right">GSTIN / PAN</Label>
                         <Input id="gstin" name="gstin" defaultValue={editingCustomer?.gstin} className="col-span-3" />
                         </div>
                     </div>
@@ -198,13 +221,12 @@ export default function CustomersPage() {
         </div>
       </CardHeader>
       <CardContent>
-        {isLoading && (
+        {loading && (
           <div className="flex justify-center items-center h-48">
             <Loader2 className="h-8 w-8 animate-spin" />
           </div>
         )}
-        {error && <p className="text-destructive text-center">Error: {error.message}</p>}
-        {!isLoading && !error && (
+        {!loading && (
             <Table>
             <TableHeader>
                 <TableRow>
@@ -213,7 +235,7 @@ export default function CustomersPage() {
                 <TableHead>Business Name</TableHead>
                 <TableHead>Address</TableHead>
                 <TableHead>Number</TableHead>
-                <TableHead>GSTIN</TableHead>
+                <TableHead>GSTIN / PAN</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
             </TableHeader>

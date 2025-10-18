@@ -96,7 +96,7 @@ export default function SettingsPage() {
             {errors.phone && <p className="text-sm text-destructive mt-1">{errors.phone.message}</p>}
           </div>
           <div>
-            <Label htmlFor="gstin">GSTIN (optional)</Label>
+            <Label htmlFor="gstin">GSTIN / PAN (optional)</Label>
             <Input id="gstin" {...register('gstin')} />
             {errors.gstin && <p className="text-sm text-destructive mt-1">{errors.gstin.message}</p>}
           </div>

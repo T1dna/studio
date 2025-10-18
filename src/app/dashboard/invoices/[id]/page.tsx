@@ -82,7 +82,7 @@ export default function InvoiceDetailPage() {
                         <p className="font-bold text-lg">{businessDetails.name}</p>
                         <p>{businessDetails.address}</p>
                         <p>Phone: {businessDetails.phone}</p>
-                        {isTaxInvoice && businessDetails.gstin && <p>GSTIN: {businessDetails.gstin}</p>}
+                        {isTaxInvoice && businessDetails.gstin && <p>GSTIN / PAN: {businessDetails.gstin}</p>}
                     </div>
                     <div className="text-right space-y-1">
                         <p><span className="font-semibold">Invoice #:</span> {invoice.id}</p>
@@ -95,7 +95,7 @@ export default function InvoiceDetailPage() {
                         <p className="font-semibold">Billed To:</p>
                         <p className="font-bold">{customer.name}</p>
                         <p>{customer.address}</p>
-                        {customer.gstin && <p>GSTIN: {customer.gstin}</p>}
+                        {customer.gstin && <p>GSTIN / PAN: {customer.gstin}</p>}
                     </div>
                     <div className="text-right">
                          <p className="font-semibold">Payment Mode:</p>
