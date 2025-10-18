@@ -11,17 +11,22 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { PlusCircle, Trash2 } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useInvoices } from '@/contexts/invoices-context';
 import { useRouter } from 'next/navigation';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, CollectionReference } from 'firebase/firestore';
 
-// Mock Data
-const mockCustomers = [
-  { id: 'CUST-001', name: 'Rohan Sharma', address: '123 Diamond Street, Jaipur', gstin: '08AAAAA0000A1Z5' },
-  { id: 'CUST-002', name: 'Priya Patel', address: '456 Ruby Lane, Mumbai', gstin: '' },
-  { id: 'CUST-003', name: 'Amit Singh', address: '789 Emerald Road, Delhi', gstin: '07BBBBB0000B1Z4' },
-];
+type Customer = {
+  id: string;
+  name: string;
+  fatherName: string;
+  businessName?: string;
+  address: string;
+  number: string;
+  gstin?: string;
+};
 
 // Zod Schema for validation
 const itemSchema = z.object({
@@ -73,6 +78,14 @@ export default function InvoiceGeneratorPage() {
   const router = useRouter();
   const [invoiceDate, setInvoiceDate] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
+  
+  const firestore = useFirestore();
+  const customersCollection = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'customers') as CollectionReference<Omit<Customer, 'id'>>;
+  }, [firestore]);
+  const { data: customers, isLoading: customersLoading } = useCollection<Omit<Customer, 'id'>>(customersCollection);
+
 
   const form = useForm<InvoiceFormData>({
     resolver: zodResolver(invoiceSchema),
@@ -100,7 +113,7 @@ export default function InvoiceGeneratorPage() {
   const watchedDiscount = watch('discount') || 0;
   const watchedCustomerId = watch('customerId');
   
-  const selectedCustomer = mockCustomers.find(c => c.id === watchedCustomerId) || null;
+  const selectedCustomer = customers?.find(c => c.id === watchedCustomerId) || null;
   
   const calculateTotals = useMemo(() => {
     let subtotal = 0;
@@ -195,14 +208,20 @@ export default function InvoiceGeneratorPage() {
                 name="customerId"
                 control={control}
                 render={({ field }) => (
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value} disabled={customersLoading}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select a customer" />
+                      <SelectValue placeholder={customersLoading ? "Loading customers..." : "Select a customer"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {mockCustomers.map(c => (
-                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                      ))}
+                      {customersLoading ? (
+                        <div className="flex items-center justify-center p-4">
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                        </div>
+                      ) : (
+                        customers?.map(c => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 )}
@@ -360,7 +379,7 @@ export default function InvoiceGeneratorPage() {
                 </div>
             </div>
           <p className="text-center text-muted-foreground text-sm w-full">Thank You! Visit Again.</p>
-           <Button type="submit" className="w-full" size="lg">Generate Invoice</Button>
+           <Button type="submit" className="w-full" size="lg" disabled={!form.formState.isValid || customersLoading}>Generate Invoice</Button>
         </CardFooter>
       </Card>
     </form>
