@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Table,
   TableBody,
@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PlusCircle, MoreHorizontal, Trash2, Edit, Search } from "lucide-react";
+import { PlusCircle, MoreHorizontal, Trash2, Edit, Search, Loader2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,6 +31,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, doc, addDoc, updateDoc, deleteDoc, CollectionReference } from 'firebase/firestore';
 
 type Customer = {
   id: string;
@@ -42,66 +44,50 @@ type Customer = {
   gstin?: string;
 };
 
-const initialCustomers: Customer[] = [
-  { id: 'CUST-001', name: 'Rohan Sharma', fatherName: 'Rajesh Sharma', businessName: 'Sharma Gems', address: '123 Diamond Street, Jaipur', number: '9876543210', gstin: '08AAAAA0000A1Z5' },
-  { id: 'CUST-002', name: 'Priya Patel', fatherName: 'Mahesh Patel', businessName: 'Patel Diamonds', address: '456 Ruby Lane, Mumbai', number: '8765432109' },
-  { id: 'CUST-003', name: 'Amit Singh', fatherName: 'Suresh Singh', address: '789 Emerald Road, Delhi', number: '7654321098', gstin: '07BBBBB0000B1Z4' },
-  { id: 'CUST-004', name: 'Sunita Williams', fatherName: 'John Williams', businessName: 'Galaxy Ornaments', address: '101 Sapphire Avenue, Bangalore', number: '6543210987' },
-];
-
 export default function CustomersPage() {
   const { toast } = useToast();
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const firestore = useFirestore();
+  
+  const customersCollection = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'customers') as CollectionReference<Omit<Customer, 'id'>>;
+  }, [firestore]);
+
+  const { data: customers, isLoading, error } = useCollection<Omit<Customer, 'id'>>(customersCollection);
+
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
-   useEffect(() => {
-    try {
-      const storedCustomersRaw = localStorage.getItem('gems-customers');
-      if (storedCustomersRaw) {
-        setCustomers(JSON.parse(storedCustomersRaw));
-      } else {
-        setCustomers(initialCustomers);
-        localStorage.setItem('gems-customers', JSON.stringify(initialCustomers));
-      }
-    } catch (error) {
-      console.error("Failed to parse customers from localStorage", error);
-      setCustomers(initialCustomers);
-    }
-  }, []);
-
-  const updateCustomersStateAndStorage = (newCustomers: Customer[]) => {
-    setCustomers(newCustomers);
-    localStorage.setItem('gems-customers', JSON.stringify(newCustomers));
-  };
-
-
-  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!firestore || !customersCollection) return;
+
     const formData = new FormData(e.currentTarget);
-    const newCustomerData: Customer = {
-      id: editingCustomer?.id || `CUST-00${customers.length + 1}`,
+    const newCustomerData = {
       name: formData.get('name') as string,
       fatherName: formData.get('fatherName') as string,
-      businessName: formData.get('businessName') as string || undefined,
+      businessName: (formData.get('businessName') as string) || undefined,
       address: formData.get('address') as string,
       number: formData.get('number') as string,
-      gstin: formData.get('gstin') as string || undefined,
+      gstin: (formData.get('gstin') as string) || undefined,
     };
 
-    if (editingCustomer) {
-      const updatedCustomers = customers.map(c => c.id === editingCustomer.id ? newCustomerData : c);
-      updateCustomersStateAndStorage(updatedCustomers);
-      toast({ title: "Customer Updated", description: "The customer's details have been successfully updated." });
-    } else {
-      const updatedCustomers = [...customers, newCustomerData];
-      updateCustomersStateAndStorage(updatedCustomers);
-      toast({ title: "Customer Added", description: "A new customer has been successfully added." });
+    try {
+      if (editingCustomer) {
+        const customerDocRef = doc(firestore, 'customers', editingCustomer.id);
+        await updateDoc(customerDocRef, newCustomerData);
+        toast({ title: "Customer Updated", description: "The customer's details have been successfully updated." });
+      } else {
+        await addDoc(customersCollection, newCustomerData);
+        toast({ title: "Customer Added", description: "A new customer has been successfully added." });
+      }
+      setIsFormOpen(false);
+      setEditingCustomer(null);
+    } catch (err) {
+      console.error(err);
+      toast({ variant: 'destructive', title: "Error", description: "Could not save customer details." });
     }
-
-    setIsFormOpen(false);
-    setEditingCustomer(null);
   };
 
   const handleEdit = (customer: Customer) => {
@@ -109,10 +95,16 @@ export default function CustomersPage() {
     setIsFormOpen(true);
   };
   
-  const handleDelete = (customerId: string) => {
-    const updatedCustomers = customers.filter(c => c.id !== customerId);
-    updateCustomersStateAndStorage(updatedCustomers);
-    toast({ variant: 'destructive', title: "Customer Deleted", description: "The customer has been removed." });
+  const handleDelete = async (customerId: string) => {
+    if (!firestore) return;
+    const customerDocRef = doc(firestore, 'customers', customerId);
+    try {
+      await deleteDoc(customerDocRef);
+      toast({ variant: 'destructive', title: "Customer Deleted", description: "The customer has been removed." });
+    } catch (err) {
+       console.error(err);
+       toast({ variant: 'destructive', title: "Error", description: "Could not delete customer." });
+    }
   };
 
   const openNewCustomerForm = () => {
@@ -120,7 +112,7 @@ export default function CustomersPage() {
     setIsFormOpen(true);
   }
 
-  const filteredCustomers = customers.filter((customer) => {
+  const filteredCustomers = customers?.filter((customer) => {
     const searchTermLower = searchTerm.toLowerCase();
     return (
       customer.name.toLowerCase().includes(searchTermLower) ||
@@ -130,7 +122,7 @@ export default function CustomersPage() {
       customer.number.toLowerCase().includes(searchTermLower) ||
       (customer.gstin && customer.gstin.toLowerCase().includes(searchTermLower))
     );
-  });
+  }) || [];
 
   return (
     <Card>
@@ -198,51 +190,59 @@ export default function CustomersPage() {
         </div>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Father's Name</TableHead>
-              <TableHead>Business Name</TableHead>
-              <TableHead>Address</TableHead>
-              <TableHead>Number</TableHead>
-              <TableHead>GSTIN</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredCustomers.map((customer) => (
-              <TableRow key={customer.id}>
-                <TableCell>{customer.name}</TableCell>
-                <TableCell>{customer.fatherName}</TableCell>
-                <TableCell>{customer.businessName || '-'}</TableCell>
-                <TableCell>{customer.address}</TableCell>
-                <TableCell>{customer.number}</TableCell>
-                <TableCell>{customer.gstin || '-'}</TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
-                        <span className="sr-only">Open menu</span>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleEdit(customer)}>
-                        <Edit className="mr-2 h-4 w-4" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(customer.id)}>
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        {isLoading && (
+          <div className="flex justify-center items-center h-48">
+            <Loader2 className="h-8 w-8 animate-spin" />
+          </div>
+        )}
+        {error && <p className="text-destructive text-center">Error: {error.message}</p>}
+        {!isLoading && !error && (
+            <Table>
+            <TableHeader>
+                <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Father's Name</TableHead>
+                <TableHead>Business Name</TableHead>
+                <TableHead>Address</TableHead>
+                <TableHead>Number</TableHead>
+                <TableHead>GSTIN</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {filteredCustomers.map((customer) => (
+                <TableRow key={customer.id}>
+                    <TableCell>{customer.name}</TableCell>
+                    <TableCell>{customer.fatherName}</TableCell>
+                    <TableCell>{customer.businessName || '-'}</TableCell>
+                    <TableCell>{customer.address}</TableCell>
+                    <TableCell>{customer.number}</TableCell>
+                    <TableCell>{customer.gstin || '-'}</TableCell>
+                    <TableCell className="text-right">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleEdit(customer)}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(customer.id)}>
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                        </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                    </TableCell>
+                </TableRow>
+                ))}
+            </TableBody>
+            </Table>
+        )}
       </CardContent>
     </Card>
   );

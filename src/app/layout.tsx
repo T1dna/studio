@@ -6,6 +6,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/contexts/auth-context';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { InvoicesProvider } from '@/contexts/invoices-context';
+import { FirebaseClientProvider } from '@/firebase';
 
 export const metadata: Metadata = {
   title: 'GemsAccurate',
@@ -28,17 +29,17 @@ export default function RootLayout({
         />
       </head>
       <body className="font-body antialiased">
-        <AuthProvider>
-          <InvoicesProvider>
-            <SidebarProvider>
-              {children}
-              <Toaster />
-            </SidebarProvider>
-          </InvoicesProvider>
-        </AuthProvider>
+        <FirebaseClientProvider>
+          <AuthProvider>
+            <InvoicesProvider>
+              <SidebarProvider>
+                {children}
+                <Toaster />
+              </SidebarProvider>
+            </InvoicesProvider>
+          </AuthProvider>
+        </FirebaseClientProvider>
       </body>
     </html>
   );
 }
-
-    

@@ -1,18 +1,28 @@
 
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import {
+  Auth,
+  User,
+  signInWithEmailAndPassword,
+  signOut,
+} from 'firebase/auth';
+import { useFirebase } from '@/firebase/provider';
+import { useToast } from '@/hooks/use-toast';
 
 type Role = 'Developer' | 'Admin' | 'Accountant';
 
-interface User {
-  username: string;
+interface AppUser {
+  uid: string;
+  email: string | null;
   role: Role;
+  username: string;
 }
 
 interface AuthContextType {
-  user: User | null;
+  user: AppUser | null;
   login: (username: string, password_raw: string) => Promise<boolean>;
   logout: () => void;
   loading: boolean;
@@ -20,53 +30,68 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Mock user data - in a real app, this would come from a database
-const users: Record<string, { password_hash: string; role: Role }> = {
-  developer: { password_hash: 'admin123', role: 'Developer' },
-  admin: { password_hash: 'admin123', role: 'Admin' },
-  accountant: { password_hash: 'admin123', role: 'Accountant' },
+// Mock user data for roles - in a real app, this would come from custom claims or Firestore
+const userRoles: Record<string, Role> = {
+  'developer@test.com': 'Developer',
+  'admin@test.com': 'Admin',
+  'accountant@test.com': 'Accountant',
 };
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const router = useRouter();
+const emailMapping: Record<string, string> = {
+    'developer': 'developer@test.com',
+    'admin': 'admin@test.com',
+    'accountant': 'accountant@test.com',
+}
 
-  useEffect(() => {
-    try {
-      const storedUser = sessionStorage.getItem('gems-user');
-      if (storedUser) {
-        setUser(JSON.parse(storedUser));
-      }
-    } catch (error) {
-      console.error("Failed to parse user from sessionStorage", error);
-      sessionStorage.removeItem('gems-user');
-    } finally {
-      setLoading(false);
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const { auth, isUserLoading, user: firebaseUser } = useFirebase();
+  const [appUser, setAppUser] = useState<AppUser | null>(null);
+  const router = useRouter();
+  const { toast } = useToast();
+
+  React.useEffect(() => {
+    if (!isUserLoading && firebaseUser) {
+      const email = firebaseUser.email || '';
+      const role = userRoles[email] || 'Accountant';
+      const username = Object.keys(emailMapping).find(key => emailMapping[key] === email) || 'user';
+      setAppUser({ uid: firebaseUser.uid, email, role, username });
+    } else if (!isUserLoading && !firebaseUser) {
+      setAppUser(null);
     }
-  }, []);
+  }, [firebaseUser, isUserLoading]);
 
   const login = async (username: string, password_raw: string): Promise<boolean> => {
-    const foundUser = users[username.toLowerCase()];
-    // NOTE: In a real app, you would hash the password and compare it with a stored hash.
-    // For this MVP, we are doing a simple string comparison.
-    if (foundUser && foundUser.password_hash === password_raw) {
-      const userData = { username: username.toLowerCase(), role: foundUser.role };
-      setUser(userData);
-      sessionStorage.setItem('gems-user', JSON.stringify(userData));
-      return true;
+    const email = emailMapping[username.toLowerCase()];
+    if (!email) {
+      return false;
     }
-    return false;
+    
+    try {
+      await signInWithEmailAndPassword(auth as Auth, email, password_raw);
+      // Auth state change is handled by the useEffect hook
+      return true;
+    } catch (error) {
+      console.error("Firebase login error:", error);
+      // In a real app, you might want to create the user if they don't exist
+      // For this app, we'll assume the users are pre-created in Firebase Auth
+      return false;
+    }
   };
 
-  const logout = () => {
-    setUser(null);
-    sessionStorage.removeItem('gems-user');
-    router.push('/login');
+  const logout = async () => {
+    try {
+      await signOut(auth as Auth);
+      setAppUser(null);
+      router.push('/login');
+      toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
+    } catch (error) {
+      console.error("Logout failed:", error);
+      toast({ variant: 'destructive', title: 'Logout Failed', description: 'Could not log you out. Please try again.' });
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user: appUser, login, logout, loading: isUserLoading }}>
       {children}
     </AuthContext.Provider>
   );
