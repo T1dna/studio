@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Table,
   TableBody,
@@ -51,10 +51,31 @@ const initialCustomers: Customer[] = [
 
 export default function CustomersPage() {
   const { toast } = useToast();
-  const [customers, setCustomers] = useState<Customer[]>(initialCustomers);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+
+   useEffect(() => {
+    try {
+      const storedCustomersRaw = localStorage.getItem('gems-customers');
+      if (storedCustomersRaw) {
+        setCustomers(JSON.parse(storedCustomersRaw));
+      } else {
+        setCustomers(initialCustomers);
+        localStorage.setItem('gems-customers', JSON.stringify(initialCustomers));
+      }
+    } catch (error) {
+      console.error("Failed to parse customers from localStorage", error);
+      setCustomers(initialCustomers);
+    }
+  }, []);
+
+  const updateCustomersStateAndStorage = (newCustomers: Customer[]) => {
+    setCustomers(newCustomers);
+    localStorage.setItem('gems-customers', JSON.stringify(newCustomers));
+  };
+
 
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -70,10 +91,12 @@ export default function CustomersPage() {
     };
 
     if (editingCustomer) {
-      setCustomers(customers.map(c => c.id === editingCustomer.id ? newCustomerData : c));
+      const updatedCustomers = customers.map(c => c.id === editingCustomer.id ? newCustomerData : c);
+      updateCustomersStateAndStorage(updatedCustomers);
       toast({ title: "Customer Updated", description: "The customer's details have been successfully updated." });
     } else {
-      setCustomers([...customers, newCustomerData]);
+      const updatedCustomers = [...customers, newCustomerData];
+      updateCustomersStateAndStorage(updatedCustomers);
       toast({ title: "Customer Added", description: "A new customer has been successfully added." });
     }
 
@@ -87,7 +110,8 @@ export default function CustomersPage() {
   };
   
   const handleDelete = (customerId: string) => {
-    setCustomers(customers.filter(c => c.id !== customerId));
+    const updatedCustomers = customers.filter(c => c.id !== customerId);
+    updateCustomersStateAndStorage(updatedCustomers);
     toast({ variant: 'destructive', title: "Customer Deleted", description: "The customer has been removed." });
   };
 

@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Table,
   TableBody,
@@ -57,10 +57,31 @@ const mockInvoices = [
 
 export default function PaymentsPage() {
   const { toast } = useToast();
-  const [payments, setPayments] = useState<Payment[]>(initialPayments);
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+
+  useEffect(() => {
+    try {
+      const storedPaymentsRaw = localStorage.getItem('gems-payments');
+      if (storedPaymentsRaw) {
+        setPayments(JSON.parse(storedPaymentsRaw));
+      } else {
+        setPayments(initialPayments);
+        localStorage.setItem('gems-payments', JSON.stringify(initialPayments));
+      }
+    } catch (error) {
+      console.error("Failed to parse payments from localStorage", error);
+      setPayments(initialPayments);
+    }
+  }, []);
+
+  const updatePaymentsStateAndStorage = (newPayments: Payment[]) => {
+    setPayments(newPayments);
+    localStorage.setItem('gems-payments', JSON.stringify(newPayments));
+  };
+
 
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -78,10 +99,12 @@ export default function PaymentsPage() {
     };
 
     if (editingPayment) {
-      setPayments(payments.map(p => p.id === editingPayment.id ? newPaymentData : p));
+      const updatedPayments = payments.map(p => p.id === editingPayment.id ? newPaymentData : p);
+      updatePaymentsStateAndStorage(updatedPayments);
       toast({ title: "Payment Updated", description: "The payment record has been successfully updated." });
     } else {
-      setPayments([...payments, newPaymentData]);
+      const updatedPayments = [...payments, newPaymentData];
+      updatePaymentsStateAndStorage(updatedPayments);
       toast({ title: "Payment Added", description: "A new payment has been successfully recorded." });
     }
 
@@ -98,7 +121,8 @@ export default function PaymentsPage() {
   };
   
   const handleDelete = (paymentId: string) => {
-    setPayments(payments.filter(p => p.id !== paymentId));
+    const updatedPayments = payments.filter(p => p.id !== paymentId);
+    updatePaymentsStateAndStorage(updatedPayments);
     toast({ variant: 'destructive', title: "Payment Deleted", description: "The payment record has been removed." });
   };
 
