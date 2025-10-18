@@ -1,0 +1,453 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user account in the accounting system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user."
+        },
+        "username": {
+          "type": "string",
+          "description": "User's login username."
+        },
+        "passwordHash": {
+          "type": "string",
+          "description": "Hashed password for authentication.  Note:  This is a simplified example.  Do NOT store passwords directly. Use a robust authentication service."
+        },
+        "role": {
+          "type": "string",
+          "description": "User's role (Developer, Admin, Accountant)."
+        },
+        "createdDate": {
+          "type": "string",
+          "description": "Date the user account was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "username",
+        "passwordHash",
+        "role",
+        "createdDate"
+      ]
+    },
+    "BusinessSetting": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "BusinessSetting",
+      "type": "object",
+      "description": "Stores business-level settings for the accounting system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the business settings record."
+        },
+        "shopName": {
+          "type": "string",
+          "description": "Name of the jewelry shop."
+        },
+        "address": {
+          "type": "string",
+          "description": "Address of the shop."
+        },
+        "contactPersons": {
+          "type": "array",
+          "description": "Array of contact person objects for the shop.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "gstin": {
+          "type": "string",
+          "description": "GSTIN registration number."
+        },
+        "invoiceCounterCash": {
+          "type": "number",
+          "description": "Counter for cash invoice numbering."
+        },
+        "invoiceCounterTax": {
+          "type": "number",
+          "description": "Counter for tax/GST invoice numbering."
+        }
+      },
+      "required": [
+        "id",
+        "shopName",
+        "address",
+        "contactPersons",
+        "gstin",
+        "invoiceCounterCash",
+        "invoiceCounterTax"
+      ]
+    },
+    "Customer": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Customer",
+      "type": "object",
+      "description": "Represents a customer of the jewelry business.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the customer."
+        },
+        "name": {
+          "type": "string",
+          "description": "Customer's name."
+        },
+        "fatherName": {
+          "type": "string",
+          "description": "Customer's father's name."
+        },
+        "phone": {
+          "type": "string",
+          "description": "Customer's phone number."
+        },
+        "address": {
+          "type": "string",
+          "description": "Customer's address."
+        },
+        "gstin": {
+          "type": "string",
+          "description": "Customer's GSTIN number."
+        },
+        "paymentTerms": {
+          "type": "number",
+          "description": "Payment terms in days."
+        },
+        "interestRate": {
+          "type": "number",
+          "description": "Monthly interest rate."
+        },
+        "interestCompound": {
+          "type": "string",
+          "description": "Interest compounding frequency (Monthly, Quarterly, Annually)."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "phone",
+        "address",
+        "paymentTerms",
+        "interestRate",
+        "interestCompound"
+      ]
+    },
+    "Item": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Item",
+      "type": "object",
+      "description": "Represents an item in the jewelry inventory.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the item."
+        },
+        "name": {
+          "type": "string",
+          "description": "Item name."
+        },
+        "description": {
+          "type": "string",
+          "description": "Item description."
+        },
+        "hsnCode": {
+          "type": "string",
+          "description": "HSN code for the item."
+        },
+        "createdDate": {
+          "type": "string",
+          "description": "Date the item was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description",
+        "hsnCode",
+        "createdDate"
+      ]
+    },
+    "Invoice": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Invoice",
+      "type": "object",
+      "description": "Represents an invoice.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the invoice."
+        },
+        "invoiceNo": {
+          "type": "string",
+          "description": "Invoice number."
+        },
+        "type": {
+          "type": "string",
+          "description": "Invoice type (Cash or Tax/GST)."
+        },
+        "customerId": {
+          "type": "string",
+          "description": "Reference to Customer. (Relationship: Customer 1:N Invoice)"
+        },
+        "date": {
+          "type": "string",
+          "description": "Invoice date.",
+          "format": "date-time"
+        },
+        "paymentMode": {
+          "type": "string",
+          "description": "Payment mode."
+        },
+        "amounts": {
+          "type": "number",
+          "description": "Total invoice amount."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Invoice notes."
+        }
+      },
+      "required": [
+        "id",
+        "invoiceNo",
+        "type",
+        "customerId",
+        "date",
+        "paymentMode",
+        "amounts"
+      ]
+    },
+    "InvoiceItem": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "InvoiceItem",
+      "type": "object",
+      "description": "Represents an item within an invoice.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the invoice item."
+        },
+        "invoiceId": {
+          "type": "string",
+          "description": "Reference to Invoice. (Relationship: Invoice 1:N InvoiceItem)"
+        },
+        "itemDetails": {
+          "type": "string",
+          "description": "Item details (likely referencing Item, but could be a snapshot)."
+        },
+        "quantities": {
+          "type": "number",
+          "description": "Item quantity."
+        },
+        "rates": {
+          "type": "number",
+          "description": "Item rate."
+        },
+        "makingCharges": {
+          "type": "number",
+          "description": "Making charges for the item."
+        }
+      },
+      "required": [
+        "id",
+        "invoiceId",
+        "itemDetails",
+        "quantities",
+        "rates",
+        "makingCharges"
+      ]
+    },
+    "Payment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Payment",
+      "type": "object",
+      "description": "Represents a payment made by a customer.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the payment."
+        },
+        "customerId": {
+          "type": "string",
+          "description": "Reference to Customer. (Relationship: Customer 1:N Payment)"
+        },
+        "invoiceId": {
+          "type": "string",
+          "description": "Reference to Invoice. (Relationship: Invoice 1:N Payment)"
+        },
+        "amountPrincipal": {
+          "type": "number",
+          "description": "Principal amount paid."
+        },
+        "amountInterest": {
+          "type": "number",
+          "description": "Interest amount paid."
+        }
+      },
+      "required": [
+        "id",
+        "customerId",
+        "invoiceId",
+        "amountPrincipal",
+        "amountInterest"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user account information. Path-based ownership ensures only the user can access their own data.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/business_settings/{businessSettingsId}",
+        "definition": {
+          "entityName": "BusinessSetting",
+          "schema": {
+            "$ref": "#/backend/entities/BusinessSetting"
+          },
+          "description": "Stores business-level settings. Access restricted to users in the /roles_developer collection.",
+          "params": [
+            {
+              "name": "businessSettingsId",
+              "description": "The unique identifier for the business settings document."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/customers/{customerId}",
+        "definition": {
+          "entityName": "Customer",
+          "schema": {
+            "$ref": "#/backend/entities/Customer"
+          },
+          "description": "Stores customer information.",
+          "params": [
+            {
+              "name": "customerId",
+              "description": "The unique identifier for the customer."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/items/{itemId}",
+        "definition": {
+          "entityName": "Item",
+          "schema": {
+            "$ref": "#/backend/entities/Item"
+          },
+          "description": "Stores item/inventory information.",
+          "params": [
+            {
+              "name": "itemId",
+              "description": "The unique identifier for the item."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/customers/{customerId}/invoices/{invoiceId}",
+        "definition": {
+          "entityName": "Invoice",
+          "schema": {
+            "$ref": "#/backend/entities/Invoice"
+          },
+          "description": "Stores invoice information, associated with a specific customer via path-based ownership.",
+          "params": [
+            {
+              "name": "customerId",
+              "description": "The unique identifier for the customer."
+            },
+            {
+              "name": "invoiceId",
+              "description": "The unique identifier for the invoice."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/invoices/{invoiceId}/invoice_items/{invoiceItemId}",
+        "definition": {
+          "entityName": "InvoiceItem",
+          "schema": {
+            "$ref": "#/backend/entities/InvoiceItem"
+          },
+          "description": "Stores invoice item information, associated with a specific invoice.",
+          "params": [
+            {
+              "name": "invoiceId",
+              "description": "The unique identifier for the invoice."
+            },
+            {
+              "name": "invoiceItemId",
+              "description": "The unique identifier for the invoice item."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/customers/{customerId}/payments/{paymentId}",
+        "definition": {
+          "entityName": "Payment",
+          "schema": {
+            "$ref": "#/backend/entities/Payment"
+          },
+          "description": "Stores payment information, associated with a specific customer via path-based ownership.",
+          "params": [
+            {
+              "name": "customerId",
+              "description": "The unique identifier for the customer."
+            },
+            {
+              "name": "paymentId",
+              "description": "The unique identifier for the payment."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/roles_developer/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Collection used to store the user IDs of developer roles. Existence of a document grants developer access.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to reflect the relationships between entities in the jewelry business accounting software, ensuring data integrity and enabling secure and efficient data access. Key to this design is adhering to Authorization Independence (CRITICAL).  This is achieved by storing authorization data within the documents themselves, avoiding the need for complex `get()` calls in security rules.  We're employing Path-Based ownership for user-specific data and a Membership Map model where applicable for collaborative access. This approach supports secure `list` operations (QAPs) by ensuring each collection maintains a homogeneous security posture.\n\nSpecifically:\n\n*   **Users:** `/users/{userId}` utilizes path-based ownership, making security rules straightforward (only the user can access their own data).\n*   **Business Settings:** `/business_settings/{businessSettingsId}`. Access is restricted to Developers, enforced through a dedicated `/roles_developer/{userId}` collection.  The existence of a document in this collection grants access.  This approach promotes Authorization Independence as access is determined locally within the rule, not by traversing the data hierarchy.\n*   **Customers:** `/customers/{customerId}`. All authenticated users can create and manage customers, but the data resides at the root level. \n*   **Items:** `/items/{itemId}`. All authenticated users can create and manage items, but the data resides at the root level. \n*   **Invoices:** `/invoices/{invoiceId}`.  Leverages the path-based ownership pattern `/customers/{customerId}/invoices/{invoiceId}` to associate invoices with customers and simplify authorization. This is a User 1:N Entity relationship.\n*   **InvoiceItems:** `/invoices/{invoiceId}/invoice_items/{invoiceItemId}`.  Mirrors the Invoice structure, creating a nested path for invoice items. This enforces ownership and maintains the 1:N relationship between invoices and invoice items.\n*   **Payments:**  `/customers/{customerId}/payments/{paymentId}`.  Employs path-based ownership to associate payments with the correct customer.  Access control is thus simplified and efficient.\n\nThis structure ensures that security rules can be written clearly and debugged easily, while also supporting the application's data access patterns. The design intentionally avoids complex hierarchical dependencies, promoting scalability and maintainability."
+  }
+}
