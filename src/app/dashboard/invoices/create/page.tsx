@@ -57,7 +57,7 @@ const getItemTotal = (item: ItemFormData): number => {
     const grossWeight = Number(item.grossWeight) || 0;
     const makingChargeValue = Number(item.makingChargeValue) || 0;
     
-    const baseAmount = qty * rate;
+    const baseAmount = grossWeight * rate;
 
     switch (item.makingChargeType) {
       case 'percentage':

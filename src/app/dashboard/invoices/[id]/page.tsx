@@ -144,7 +144,7 @@ export default function InvoiceDetailPage() {
                                     <TableCell>{item.purity || '-'}</TableCell>
                                     <TableCell>{chargeText}</TableCell>
                                     <TableCell className="text-right">{formatCurrency(item.rate)}</TableCell>
-                                    <TableCell className="text-right font-medium">{formatCurrency(item.qty * item.rate)}</TableCell>
+                                    <TableCell className="text-right font-medium">{formatCurrency(item.grossWeight * item.rate)}</TableCell>
                                 </TableRow>
                             )
                         })}
