@@ -116,10 +116,10 @@ export default function CustomersPage() {
     const searchTermLower = searchTerm.toLowerCase();
     return (
       customer.name.toLowerCase().includes(searchTermLower) ||
-      customer.fatherName.toLowerCase().includes(searchTermLower) ||
+      (customer.fatherName && customer.fatherName.toLowerCase().includes(searchTermLower)) ||
       (customer.businessName && customer.businessName.toLowerCase().includes(searchTermLower)) ||
-      customer.address.toLowerCase().includes(searchTermLower) ||
-      customer.number.toLowerCase().includes(searchTermLower) ||
+      (customer.address && customer.address.toLowerCase().includes(searchTermLower)) ||
+      (customer.number && customer.number.toLowerCase().includes(searchTermLower)) ||
       (customer.gstin && customer.gstin.toLowerCase().includes(searchTermLower))
     );
   }) || [];
@@ -161,7 +161,7 @@ export default function CustomersPage() {
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="fatherName" className="text-right">Father's Name</Label>
-                        <Input id="fatherName" name="fatherName" defaultValue={editingCustomer?.fatherName} className="col-span-3" required />
+                        <Input id="fatherName" name="fatherName" defaultValue={editingCustomer?.fatherName} className="col-span-3" />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="businessName" className="text-right">Business Name</Label>
@@ -169,11 +169,11 @@ export default function CustomersPage() {
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="address" className="text-right">Address</Label>
-                        <Input id="address" name="address" defaultValue={editingCustomer?.address} className="col-span-3" required />
+                        <Input id="address" name="address" defaultValue={editingCustomer?.address} className="col-span-3" />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="number" className="text-right">Number</Label>
-                        <Input id="number" name="number" defaultValue={editingCustomer?.number} className="col-span-3" required />
+                        <Input id="number" name="number" defaultValue={editingCustomer?.number} className="col-span-3" />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="gstin" className="text-right">GSTIN</Label>
@@ -213,10 +213,10 @@ export default function CustomersPage() {
                 {filteredCustomers.map((customer) => (
                 <TableRow key={customer.id}>
                     <TableCell>{customer.name}</TableCell>
-                    <TableCell>{customer.fatherName}</TableCell>
+                    <TableCell>{customer.fatherName || '-'}</TableCell>
                     <TableCell>{customer.businessName || '-'}</TableCell>
-                    <TableCell>{customer.address}</TableCell>
-                    <TableCell>{customer.number}</TableCell>
+                    <TableCell>{customer.address || '-'}</TableCell>
+                    <TableCell>{customer.number || '-'}</TableCell>
                     <TableCell>{customer.gstin || '-'}</TableCell>
                     <TableCell className="text-right">
                     <DropdownMenu>
