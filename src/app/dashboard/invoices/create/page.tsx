@@ -22,10 +22,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 type Customer = {
   id: string;
   name: string;
-  fatherName: string;
+  fatherName?: string;
   businessName?: string;
-  address: string;
-  number: string;
+  address?: string;
+  number?: string;
   gstin?: string;
 };
 
@@ -91,10 +91,10 @@ export default function InvoiceGeneratorPage() {
   
   const customersRef = useMemoFirebase(() => {
     if (!firestore) return null;
-    return collection(firestore, 'customers') as CollectionReference<DocumentData>;
+    return collection(firestore, 'customers');
   }, [firestore]);
   
-  const { data: customers, isLoading: customersLoading } = useCollection<Omit<Customer, 'id'>>(customersRef);
+  const { data: customers, isLoading: customersLoading } = useCollection<Customer>(customersRef);
 
   const form = useForm<InvoiceFormData>({
     resolver: zodResolver(invoiceSchema),
@@ -432,3 +432,5 @@ export default function InvoiceGeneratorPage() {
     </form>
   );
 }
+
+    
