@@ -47,37 +47,18 @@ type Customer = {
 export default function CustomersPage() {
   const { toast } = useToast();
   const firestore = useFirestore();
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  const customersRef = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'customers') as CollectionReference<DocumentData>;
+  }, [firestore]);
+
+  const { data: customers, isLoading: loading } = useCollection<Omit<Customer, 'id'>>(customersRef);
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   
-  useEffect(() => {
-    try {
-      setLoading(true);
-      const storedCustomersRaw = localStorage.getItem('gems-customers');
-      if (storedCustomersRaw) {
-        setCustomers(JSON.parse(storedCustomersRaw));
-      } else {
-        // You might want to initialize with some default data or leave it empty
-        setCustomers([]);
-      }
-    } catch (error) {
-      console.error("Failed to parse customers from localStorage", error);
-      setCustomers([]);
-    } finally {
-        setLoading(false);
-    }
-  }, []);
-
-  const updateCustomersStateAndStorage = (newCustomers: Customer[]) => {
-    setCustomers(newCustomers);
-    localStorage.setItem('gems-customers', JSON.stringify(newCustomers));
-  };
-
-
   const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!firestore) return;
@@ -85,9 +66,9 @@ export default function CustomersPage() {
     const formData = new FormData(e.currentTarget);
     const newCustomerData: { [key: string]: any } = {
       name: formData.get('name') as string,
-      fatherName: formData.get('fatherName') as string,
-      address: formData.get('address') as string,
-      number: formData.get('number') as string,
+      fatherName: formData.get('fatherName') as string || '',
+      address: formData.get('address') as string || '',
+      number: formData.get('number') as string || '',
     };
 
     const businessName = formData.get('businessName') as string;
@@ -102,15 +83,11 @@ export default function CustomersPage() {
     
     try {
         if (editingCustomer) {
-            const updatedCustomer = { ...editingCustomer, ...newCustomerData };
-            const updatedCustomers = customers.map(c => c.id === editingCustomer.id ? updatedCustomer : c);
-            updateCustomersStateAndStorage(updatedCustomers);
+            const customerDocRef = doc(firestore, 'customers', editingCustomer.id);
+            await updateDoc(customerDocRef, newCustomerData);
             toast({ title: "Customer Updated", description: "The customer's details have been successfully updated." });
         } else {
-            const newId = `CUST-${Date.now()}`;
-            const finalNewCustomer = { id: newId, ...newCustomerData } as Customer;
-            const updatedCustomers = [...customers, finalNewCustomer];
-            updateCustomersStateAndStorage(updatedCustomers);
+            await addDoc(collection(firestore, 'customers'), newCustomerData);
             toast({ title: "Customer Added", description: "A new customer has been successfully added." });
         }
         setIsFormOpen(false);
@@ -129,8 +106,8 @@ export default function CustomersPage() {
   const handleDelete = async (customerId: string) => {
     if (!firestore) return;
     try {
-        const updatedCustomers = customers.filter(c => c.id !== customerId);
-        updateCustomersStateAndStorage(updatedCustomers);
+        const customerDocRef = doc(firestore, 'customers', customerId);
+        await deleteDoc(customerDocRef);
         toast({ variant: 'destructive', title: "Customer Deleted", description: "The customer has been removed." });
     } catch (err) {
        console.error(err);
