@@ -65,17 +65,13 @@ const getItemTotal = (item: Partial<ItemFormData>): number => {
     if (makingChargeValue > 0) {
         switch (makingChargeType) {
         case 'percentage':
-            if (baseAmount > 0) {
-                makingCharge = baseAmount * (makingChargeValue / 100);
-            }
+            makingCharge = baseAmount * (makingChargeValue / 100);
             break;
         case 'flat':
             makingCharge = makingChargeValue;
             break;
         case 'per_gram':
-            if (grossWeight > 0) {
-                makingCharge = makingChargeValue * grossWeight;
-            }
+            makingCharge = makingChargeValue * grossWeight;
             break;
         }
     }
@@ -339,7 +335,7 @@ export default function InvoiceGeneratorPage() {
                             <Input type="number" step="0.01" {...register(`items.${index}.makingChargeValue`)} className="flex-1"/>
                         </div>
                     </TableCell>
-                    <TableCell className="text-right font-medium">₹{(getItemTotal(watchedItems[index]) || 0).toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-medium">₹{getItemTotal(watchedItems[index]).toFixed(2)}</TableCell>
                     {selectedCustomer?.gstin && 
                         <TableCell>
                             <Controller
