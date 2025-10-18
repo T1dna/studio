@@ -51,24 +51,31 @@ type InvoiceFormData = z.infer<typeof invoiceSchema>;
 type ItemFormData = z.infer<typeof itemSchema>;
 
 
-const getItemTotal = (item: ItemFormData): number => {
+const getItemTotal = (item: Partial<ItemFormData>): number => {
     const qty = Number(item.qty) || 0;
     const rate = Number(item.rate) || 0;
     const grossWeight = Number(item.grossWeight) || 0;
     const makingChargeValue = Number(item.makingChargeValue) || 0;
+    const makingChargeType = item.makingChargeType;
+
+    if (!grossWeight || !rate) return 0;
     
     const baseAmount = grossWeight * rate;
 
-    switch (item.makingChargeType) {
+    let makingCharge = 0;
+    switch (makingChargeType) {
       case 'percentage':
-        return baseAmount + (baseAmount * (makingChargeValue / 100));
+        makingCharge = baseAmount * (makingChargeValue / 100);
+        break;
       case 'flat':
-        return baseAmount + makingChargeValue;
+        makingCharge = makingChargeValue;
+        break;
       case 'per_gram':
-        return baseAmount + (makingChargeValue * grossWeight * qty);
-      default:
-        return baseAmount;
+        makingCharge = makingChargeValue * grossWeight * qty;
+        break;
     }
+  
+    return baseAmount + makingCharge;
   };
 
 
@@ -115,20 +122,17 @@ export default function InvoiceGeneratorPage() {
   
   const selectedCustomer = customers?.find(c => c.id === watchedCustomerId) || null;
   
-  const calculateTotals = useMemo(() => {
-    let subtotal = 0;
-    watchedItems.forEach(item => {
-      subtotal += getItemTotal(item as ItemFormData);
-    });
+  const { subtotal, gst, total } = useMemo(() => {
+    const currentSubtotal = watchedItems.reduce((acc, item) => acc + getItemTotal(item), 0);
+    const currentGst = selectedCustomer?.gstin ? currentSubtotal * 0.03 : 0;
+    const currentTotal = currentSubtotal + currentGst - (watchedDiscount || 0);
 
-    const gst = selectedCustomer?.gstin ? subtotal * 0.03 : 0;
-    const total = subtotal + gst - watchedDiscount;
-
-    return { subtotal, gst, total };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    return {
+      subtotal: currentSubtotal,
+      gst: currentGst,
+      total: currentTotal
+    };
   }, [watchedItems, selectedCustomer, watchedDiscount]);
-  
-  const { subtotal, gst, total } = calculateTotals;
   
   useEffect(() => {
     setInvoiceDate(new Date().toLocaleDateString('en-CA')); // YYYY-MM-DD format
@@ -317,7 +321,7 @@ export default function InvoiceGeneratorPage() {
                             <Input type="number" step="0.01" {...register(`items.${index}.makingChargeValue`)} className="flex-1"/>
                         </div>
                     </TableCell>
-                    <TableCell className="text-right font-medium">₹{(getItemTotal(watchedItems[index] as ItemFormData) || 0).toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-medium">₹{(getItemTotal(watchedItems[index]) || 0).toFixed(2)}</TableCell>
                     <TableCell>
                       <Button variant="ghost" size="icon" onClick={() => remove(index)} disabled={fields.length <= 1}>
                         <Trash2 className="h-4 w-4 text-destructive" />
@@ -385,3 +389,5 @@ export default function InvoiceGeneratorPage() {
     </form>
   );
 }
+
+    
