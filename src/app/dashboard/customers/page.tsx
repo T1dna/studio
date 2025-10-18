@@ -32,7 +32,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, doc, addDoc, updateDoc, deleteDoc, CollectionReference } from 'firebase/firestore';
+import { collection, doc, addDoc, updateDoc, deleteDoc, CollectionReference, DocumentData } from 'firebase/firestore';
 
 type Customer = {
   id: string;
@@ -64,14 +64,22 @@ export default function CustomersPage() {
     if (!firestore || !customersCollection) return;
 
     const formData = new FormData(e.currentTarget);
-    const newCustomerData = {
+    const newCustomerData: { [key: string]: any } = {
       name: formData.get('name') as string,
       fatherName: formData.get('fatherName') as string,
-      businessName: (formData.get('businessName') as string) || undefined,
       address: formData.get('address') as string,
       number: formData.get('number') as string,
-      gstin: (formData.get('gstin') as string) || undefined,
     };
+
+    const businessName = formData.get('businessName') as string;
+    if (businessName) {
+      newCustomerData.businessName = businessName;
+    }
+
+    const gstin = formData.get('gstin') as string;
+    if (gstin) {
+      newCustomerData.gstin = gstin;
+    }
 
     try {
       if (editingCustomer) {
