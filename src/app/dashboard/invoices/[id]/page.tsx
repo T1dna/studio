@@ -62,6 +62,33 @@ export default function InvoiceDetailPage() {
   } = invoice;
 
   const isTaxInvoice = !!customer?.gstin;
+  const showGrossWeightColumn = items.some((item: any) => item.grossWeight && item.grossWeight > 0);
+
+  const getItemTotal = (item: any): number => {
+    const rate = Number(item.rate) || 0;
+    const netWeight = Number(item.netWeight) || 0;
+    const makingChargeValue = Number(item.makingChargeValue) || 0;
+    const makingChargeType = item.makingChargeType;
+
+    const baseAmount = netWeight * rate;
+
+    let makingCharge = 0;
+    if (makingChargeValue > 0) {
+        switch (makingChargeType) {
+        case 'percentage':
+            makingCharge = baseAmount * (makingChargeValue / 100);
+            break;
+        case 'flat':
+            makingCharge = makingChargeValue;
+            break;
+        case 'per_gram':
+            makingCharge = makingChargeValue * netWeight;
+            break;
+        }
+    }
+  
+    return baseAmount + makingCharge;
+  };
 
   return (
     <div className="space-y-4 printable-area">
@@ -76,13 +103,15 @@ export default function InvoiceDetailPage() {
 
         <Card className="w-full max-w-4xl mx-auto print:shadow-none print:border-none">
             <CardHeader>
+                <div className="text-center mb-4">
+                    <h1 className="text-xl font-bold">{isTaxInvoice ? 'TAX Invoice' : 'Cash Memo'}</h1>
+                </div>
                 <div className="flex justify-between items-start">
                     <div>
-                        <h1 className="text-3xl font-bold">{isTaxInvoice ? 'TAX Invoice' : 'Cash Memo'}</h1>
-                        <p className="font-bold text-lg">{businessDetails.name}</p>
-                        <p>{businessDetails.address}</p>
-                        <p>Phone: {businessDetails.phone}</p>
-                        {isTaxInvoice && businessDetails.gstin && <p>GSTIN / PAN: {businessDetails.gstin}</p>}
+                        <p className="font-bold text-xl">{businessDetails.name}</p>
+                        <p className="text-base">{businessDetails.address}</p>
+                        <p className="text-base">Phone: {businessDetails.phone}</p>
+                        {isTaxInvoice && businessDetails.gstin && <p className="text-base">GSTIN / PAN: {businessDetails.gstin}</p>}
                     </div>
                     <div className="text-right space-y-1">
                         <p><span className="font-semibold">Invoice #:</span> {invoice.id}</p>
@@ -112,7 +141,8 @@ export default function InvoiceDetailPage() {
                             <TableHead>Item Name</TableHead>
                             <TableHead>Qty</TableHead>
                             {isTaxInvoice && <TableHead>HSN</TableHead>}
-                            <TableHead>Gross Wt(g)</TableHead>
+                            {showGrossWeightColumn && <TableHead>Gross Wt(g)</TableHead>}
+                            <TableHead>Net Wt(g)</TableHead>
                             <TableHead>(Purity)</TableHead>
                             <TableHead>Making Charge</TableHead>
                             <TableHead className="text-right">Rate</TableHead>
@@ -133,7 +163,7 @@ export default function InvoiceDetailPage() {
                                     chargeText = `(₹${item.makingChargeValue}/gm)`;
                                     break;
                             }
-                             const itemTotal = (item.grossWeight || 0) * (item.rate || 0);
+                             const itemTotal = getItemTotal(item);
 
                             return (
                                 <TableRow key={index}>
@@ -141,7 +171,8 @@ export default function InvoiceDetailPage() {
                                     <TableCell>{item.itemName}</TableCell>
                                     <TableCell>{item.qty}</TableCell>
                                     {isTaxInvoice && <TableCell>{item.hsn || '-'}</TableCell>}
-                                    <TableCell>{item.grossWeight.toFixed(2)}</TableCell>
+                                    {showGrossWeightColumn && <TableCell>{item.grossWeight ? item.grossWeight.toFixed(2) : '-'}</TableCell>}
+                                    <TableCell>{item.netWeight.toFixed(2)}</TableCell>
                                     <TableCell>{item.purity || '-'}</TableCell>
                                     <TableCell>{chargeText}</TableCell>
                                     <TableCell className="text-right">{formatCurrency(item.rate)}</TableCell>

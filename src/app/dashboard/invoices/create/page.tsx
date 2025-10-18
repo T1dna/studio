@@ -34,7 +34,8 @@ const itemSchema = z.object({
   itemName: z.string().min(1, 'Item name is required'),
   qty: z.coerce.number().positive('Quantity must be positive'),
   hsn: z.string().optional(),
-  grossWeight: z.coerce.number().nonnegative('Weight must be non-negative'),
+  grossWeight: z.coerce.number().nonnegative('Weight must be non-negative').optional(),
+  netWeight: z.coerce.number().nonnegative('Weight must be non-negative'),
   purity: z.string().optional(),
   rate: z.coerce.number().nonnegative('Rate must be non-negative'),
   makingChargeType: z.enum(['percentage', 'flat', 'per_gram']),
@@ -55,11 +56,11 @@ type ItemFormData = z.infer<typeof itemSchema>;
 
 const getItemTotal = (item: Partial<ItemFormData>): number => {
     const rate = Number(item.rate) || 0;
-    const grossWeight = Number(item.grossWeight) || 0;
+    const netWeight = Number(item.netWeight) || 0;
     const makingChargeValue = Number(item.makingChargeValue) || 0;
     const makingChargeType = item.makingChargeType;
 
-    const baseAmount = grossWeight * rate;
+    const baseAmount = netWeight * rate;
 
     let makingCharge = 0;
     if (makingChargeValue > 0) {
@@ -71,7 +72,7 @@ const getItemTotal = (item: Partial<ItemFormData>): number => {
             makingCharge = makingChargeValue;
             break;
         case 'per_gram':
-            makingCharge = makingChargeValue * grossWeight;
+            makingCharge = makingChargeValue * netWeight;
             break;
         }
     }
@@ -105,6 +106,7 @@ export default function InvoiceGeneratorPage() {
         qty: 1,
         hsn: '',
         grossWeight: 0,
+        netWeight: 0,
         purity: "91.6",
         rate: 5000,
         makingChargeType: 'percentage',
@@ -184,11 +186,11 @@ export default function InvoiceGeneratorPage() {
         <CardHeader>
           <div className="flex justify-between items-start">
             <div>
-              <h1 className="text-3xl font-bold">{selectedCustomer?.gstin ? 'TAX Invoice' : 'Cash Memo'}</h1>
-              <p>{businessDetails.name}</p>
-              <p>{businessDetails.address}</p>
-              <p>Phone: {businessDetails.phone}</p>
-              {businessDetails.gstin && <p>GSTIN / PAN: {businessDetails.gstin}</p>}
+              <h1 className="text-xl text-center font-bold w-full mb-4">{selectedCustomer?.gstin ? 'TAX Invoice' : 'Cash Memo'}</h1>
+              <p className="text-xl font-bold">{businessDetails.name}</p>
+              <p className="text-base">{businessDetails.address}</p>
+              <p className="text-base">Phone: {businessDetails.phone}</p>
+              {businessDetails.gstin && <p className="text-base">GSTIN / PAN: {businessDetails.gstin}</p>}
             </div>
             <div className="text-right space-y-2">
                 <div className="flex items-center justify-end gap-2">
@@ -281,6 +283,7 @@ export default function InvoiceGeneratorPage() {
                   <TableHead className="w-[120px]">Qty</TableHead>
                   {selectedCustomer?.gstin && <TableHead className="min-w-[100px]">HSN</TableHead>}
                   <TableHead className="min-w-[120px]">Gross Wt(g)</TableHead>
+                  <TableHead className="min-w-[120px]">Net Wt(g)</TableHead>
                   <TableHead className="min-w-[100px]">(Purity)</TableHead>
                   <TableHead className="min-w-[120px]">Rate</TableHead>
                   <TableHead className="min-w-[200px]">Making Charges</TableHead>
@@ -307,6 +310,9 @@ export default function InvoiceGeneratorPage() {
                     }
                     <TableCell>
                       <Input type="number" step="0.01" {...register(`items.${index}.grossWeight`)} />
+                    </TableCell>
+                    <TableCell>
+                      <Input type="number" step="0.01" {...register(`items.${index}.netWeight`)} />
                     </TableCell>
                     <TableCell>
                       <Input type="text" {...register(`items.${index}.purity`)} placeholder="e.g., 22K" />
@@ -361,7 +367,7 @@ export default function InvoiceGeneratorPage() {
             </Table>
           </div>
 
-          <Button type="button" variant="outline" onClick={() => append({ itemName: '', qty: 1, hsn: '', grossWeight: 0, purity: '91.6', rate: 0, makingChargeType: 'flat', makingChargeValue: 0, applyGst: true })}>
+          <Button type="button" variant="outline" onClick={() => append({ itemName: '', qty: 1, hsn: '', grossWeight: 0, netWeight: 0, purity: '91.6', rate: 0, makingChargeType: 'flat', makingChargeValue: 0, applyGst: true })}>
             <PlusCircle className="mr-2" /> Add Item
           </Button>
 
