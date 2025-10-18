@@ -252,6 +252,10 @@
         "makingCharges": {
           "type": "number",
           "description": "Making charges for the item."
+        },
+        "applyGst": {
+            "type": "boolean",
+            "description": "Indicates if GST should be applied to this item."
         }
       },
       "required": [

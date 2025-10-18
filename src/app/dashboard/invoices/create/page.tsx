@@ -15,6 +15,9 @@ import { PlusCircle, Trash2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useInvoices } from '@/contexts/invoices-context';
 import { useRouter } from 'next/navigation';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { addDoc, collection, CollectionReference, DocumentData } from 'firebase/firestore';
+import { Checkbox } from '@/components/ui/checkbox';
 
 type Customer = {
   id: string;
@@ -36,6 +39,7 @@ const itemSchema = z.object({
   rate: z.coerce.number().nonnegative('Rate must be non-negative'),
   makingChargeType: z.enum(['percentage', 'flat', 'per_gram']),
   makingChargeValue: z.coerce.number().nonnegative('Making charge must be non-negative'),
+  applyGst: z.boolean().optional(),
 });
 
 const invoiceSchema = z.object({
@@ -84,26 +88,16 @@ export default function InvoiceGeneratorPage() {
   const { toast } = useToast();
   const { addInvoice, businessDetails } = useInvoices();
   const router = useRouter();
+  const firestore = useFirestore();
   const [invoiceDate, setInvoiceDate] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
   
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [customersLoading, setCustomersLoading] = useState(true);
+  const customersRef = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'customers') as CollectionReference<DocumentData>;
+  }, [firestore]);
   
-  useEffect(() => {
-    try {
-      setCustomersLoading(true);
-      const storedCustomersRaw = localStorage.getItem('gems-customers');
-      if (storedCustomersRaw) {
-        setCustomers(JSON.parse(storedCustomersRaw));
-      }
-    } catch (error) {
-      console.error("Failed to parse customers from localStorage", error);
-      setCustomers([]);
-    } finally {
-        setCustomersLoading(false);
-    }
-  }, []);
+  const { data: customers, isLoading: customersLoading } = useCollection<Omit<Customer, 'id'>>(customersRef);
 
   const form = useForm<InvoiceFormData>({
     resolver: zodResolver(invoiceSchema),
@@ -118,7 +112,8 @@ export default function InvoiceGeneratorPage() {
         purity: "91.6",
         rate: 5000,
         makingChargeType: 'percentage',
-        makingChargeValue: 10
+        makingChargeValue: 10,
+        applyGst: true,
       }],
       discount: 0
     },
@@ -133,13 +128,19 @@ export default function InvoiceGeneratorPage() {
   const watchedCustomerId = watch('customerId');
   
   const selectedCustomer = useMemo(() => 
-    customers.find(c => c.id === watchedCustomerId) || null,
+    customers?.find(c => c.id === watchedCustomerId) || null,
     [customers, watchedCustomerId]
   );
   
   const calculateTotals = useCallback((items: Partial<ItemFormData>[], customerGstin?: string | null, discount?: number) => {
     const subtotal = items.reduce((acc, item) => acc + getItemTotal(item), 0);
-    const gst = customerGstin ? subtotal * 0.03 : 0;
+    const taxableAmount = customerGstin ? items.reduce((acc, item) => {
+        if (item.applyGst) {
+            return acc + getItemTotal(item);
+        }
+        return acc;
+    }, 0) : 0;
+    const gst = taxableAmount * 0.03;
     const total = subtotal + gst - (discount || 0);
     return { subtotal, gst, total };
   }, []);
@@ -282,12 +283,13 @@ export default function InvoiceGeneratorPage() {
                   <TableHead className="w-[40px]">SN</TableHead>
                   <TableHead className="min-w-[150px]">Item Name</TableHead>
                   <TableHead className="w-[120px]">Qty</TableHead>
-                  <TableHead className="min-w-[100px]">HSN</TableHead>
+                  {selectedCustomer?.gstin && <TableHead className="min-w-[100px]">HSN</TableHead>}
                   <TableHead className="min-w-[120px]">Gross Wt(g)</TableHead>
                   <TableHead className="min-w-[100px]">(Purity)</TableHead>
                   <TableHead className="min-w-[120px]">Rate</TableHead>
                   <TableHead className="min-w-[200px]">Making Charges</TableHead>
                   <TableHead className="min-w-[120px] text-right">Total</TableHead>
+                  {selectedCustomer?.gstin && <TableHead className="w-[50px]">Tax?</TableHead>}
                   <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -302,9 +304,11 @@ export default function InvoiceGeneratorPage() {
                     <TableCell>
                       <Input type="number" {...register(`items.${index}.qty`)} />
                     </TableCell>
-                    <TableCell>
-                      <Input {...register(`items.${index}.hsn`)} placeholder="e.g., 7113" />
-                    </TableCell>
+                    {selectedCustomer?.gstin &&
+                        <TableCell>
+                            <Input {...register(`items.${index}.hsn`)} placeholder="e.g., 7113" />
+                        </TableCell>
+                    }
                     <TableCell>
                       <Input type="number" step="0.01" {...register(`items.${index}.grossWeight`)} />
                     </TableCell>
@@ -336,6 +340,20 @@ export default function InvoiceGeneratorPage() {
                         </div>
                     </TableCell>
                     <TableCell className="text-right font-medium">₹{(getItemTotal(watchedItems[index]) || 0).toFixed(2)}</TableCell>
+                    {selectedCustomer?.gstin && 
+                        <TableCell>
+                            <Controller
+                                name={`items.${index}.applyGst`}
+                                control={control}
+                                render={({ field }) => (
+                                    <Checkbox
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                    />
+                                )}
+                            />
+                        </TableCell>
+                    }
                     <TableCell>
                       <Button variant="ghost" size="icon" onClick={() => remove(index)} disabled={fields.length <= 1}>
                         <Trash2 className="h-4 w-4 text-destructive" />
@@ -347,7 +365,7 @@ export default function InvoiceGeneratorPage() {
             </Table>
           </div>
 
-          <Button type="button" variant="outline" onClick={() => append({ itemName: '', qty: 1, hsn: '', grossWeight: 0, purity: '91.6', rate: 0, makingChargeType: 'flat', makingChargeValue: 0 })}>
+          <Button type="button" variant="outline" onClick={() => append({ itemName: '', qty: 1, hsn: '', grossWeight: 0, purity: '91.6', rate: 0, makingChargeType: 'flat', makingChargeValue: 0, applyGst: true })}>
             <PlusCircle className="mr-2" /> Add Item
           </Button>
 

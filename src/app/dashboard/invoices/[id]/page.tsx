@@ -133,6 +133,7 @@ export default function InvoiceDetailPage() {
                                     chargeText = `(₹${item.makingChargeValue}/gm)`;
                                     break;
                             }
+                             const itemTotal = (item.grossWeight || 0) * (item.rate || 0);
 
                             return (
                                 <TableRow key={index}>
@@ -144,7 +145,10 @@ export default function InvoiceDetailPage() {
                                     <TableCell>{item.purity || '-'}</TableCell>
                                     <TableCell>{chargeText}</TableCell>
                                     <TableCell className="text-right">{formatCurrency(item.rate)}</TableCell>
-                                    <TableCell className="text-right font-medium">{formatCurrency(item.grossWeight * item.rate)}</TableCell>
+                                    <TableCell className="text-right font-medium">
+                                        {formatCurrency(itemTotal)}
+                                        {isTaxInvoice && item.applyGst && <span className="text-xs text-muted-foreground ml-1">(Taxed)</span>}
+                                    </TableCell>
                                 </TableRow>
                             )
                         })}
