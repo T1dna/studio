@@ -65,7 +65,8 @@ export default function InvoiceDetailPage() {
   } = invoice;
 
   const isTaxInvoice = !!customer?.gstin;
-  const showGrossWeightColumn = items.some((item: any) => item.grossWeight && item.grossWeight > 0);
+  const showGrossWeightColumn = items.some((item: any) => item.grossWeight && parseFloat(item.grossWeight) > 0);
+  const showHsnColumn = isTaxInvoice && items.some((item: any) => item.hsn);
   const cgst = totals.gst / 2;
   const sgst = totals.gst / 2;
 
@@ -145,7 +146,7 @@ export default function InvoiceDetailPage() {
                             <TableHead className="w-[40px]">SN</TableHead>
                             <TableHead>Item Name</TableHead>
                             <TableHead>Qty</TableHead>
-                            {isTaxInvoice && <TableHead>HSN</TableHead>}
+                            {showHsnColumn && <TableHead>HSN</TableHead>}
                             {showGrossWeightColumn && <TableHead>Gross Wt(g)</TableHead>}
                             <TableHead>Net Wt(g)</TableHead>
                             <TableHead>(Purity)</TableHead>
@@ -157,16 +158,18 @@ export default function InvoiceDetailPage() {
                     <TableBody>
                         {items.map((item: any, index: number) => {
                             let chargeText = '-';
-                            switch (item.makingChargeType) {
-                                case 'percentage':
-                                    chargeText = `(${item.makingChargeValue}%)`;
-                                    break;
-                                case 'flat':
-                                    chargeText = `(Flat)`;
-                                    break;
-                                case 'per_gram':
-                                    chargeText = `(₹${item.makingChargeValue}/gm)`;
-                                    break;
+                            if (item.makingChargeValue > 0) {
+                                switch (item.makingChargeType) {
+                                    case 'percentage':
+                                        chargeText = `(${item.makingChargeValue}%)`;
+                                        break;
+                                    case 'flat':
+                                        chargeText = `(Flat)`;
+                                        break;
+                                    case 'per_gram':
+                                        chargeText = `(₹${item.makingChargeValue}/gm)`;
+                                        break;
+                                }
                             }
                              const itemTotal = getItemTotal(item);
 
@@ -175,12 +178,12 @@ export default function InvoiceDetailPage() {
                                     <TableCell>{index + 1}</TableCell>
                                     <TableCell>{item.itemName}</TableCell>
                                     <TableCell>{item.qty}</TableCell>
-                                    {isTaxInvoice && <TableCell>{item.hsn || '-'}</TableCell>}
-                                    {showGrossWeightColumn && <TableCell>{item.grossWeight ? formatWeight(item.grossWeight) : '-'}</TableCell>}
-                                    <TableCell>{formatWeight(item.netWeight)}</TableCell>
+                                    {showHsnColumn && <TableCell>{item.hsn || '-'}</TableCell>}
+                                    {showGrossWeightColumn && <TableCell>{item.grossWeight ? formatWeight(Number(item.grossWeight)) : '-'}</TableCell>}
+                                    <TableCell>{formatWeight(Number(item.netWeight))}</TableCell>
                                     <TableCell>{item.purity || '-'}</TableCell>
                                     <TableCell>{chargeText}</TableCell>
-                                    <TableCell className="text-right">{formatRate(item.rate)}</TableCell>
+                                    <TableCell className="text-right">{formatRate(Number(item.rate))}</TableCell>
                                     <TableCell className="text-right font-medium">
                                         {formatCurrency(itemTotal)}
                                         {isTaxInvoice && item.applyGst && <span className="text-xs text-muted-foreground ml-1">(Taxed)</span>}
