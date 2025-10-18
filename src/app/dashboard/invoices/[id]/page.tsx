@@ -73,6 +73,7 @@ export default function InvoiceDetailPage() {
   const getItemTotal = (item: any): number => {
     const rate = Number(item.rate) || 0;
     const netWeight = Number(item.netWeight) || 0;
+    const qty = Number(item.qty) || 0;
     const makingChargeValue = Number(item.makingChargeValue) || 0;
     const makingChargeType = item.makingChargeType;
 
@@ -89,6 +90,9 @@ export default function InvoiceDetailPage() {
             break;
         case 'per_gram':
             makingCharge = makingChargeValue * netWeight;
+            break;
+        case 'per_item':
+            makingCharge = makingChargeValue * qty;
             break;
         }
     }
@@ -169,6 +173,9 @@ export default function InvoiceDetailPage() {
                                     case 'per_gram':
                                         chargeText = `(₹${item.makingChargeValue}/gm)`;
                                         break;
+                                    case 'per_item':
+                                        chargeText = `(₹${item.makingChargeValue}/item)`;
+                                        break;
                                 }
                             }
                              const itemTotal = getItemTotal(item);
@@ -240,3 +247,5 @@ export default function InvoiceDetailPage() {
     </div>
   );
 }
+
+    

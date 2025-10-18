@@ -38,7 +38,7 @@ const itemSchema = z.object({
   netWeight: z.coerce.number().nonnegative('Weight must be non-negative'),
   purity: z.string().optional(),
   rate: z.coerce.number().nonnegative('Rate must be non-negative'),
-  makingChargeType: z.enum(['percentage', 'flat', 'per_gram']),
+  makingChargeType: z.enum(['percentage', 'flat', 'per_gram', 'per_item']),
   makingChargeValue: z.coerce.number().nonnegative('Making charge must be non-negative'),
   applyGst: z.boolean().optional(),
 });
@@ -57,6 +57,7 @@ type ItemFormData = z.infer<typeof itemSchema>;
 const getItemTotal = (item: Partial<ItemFormData>): number => {
     const rate = Number(item.rate) || 0;
     const netWeight = Number(item.netWeight) || 0;
+    const qty = Number(item.qty) || 0;
     const makingChargeValue = Number(item.makingChargeValue) || 0;
     const makingChargeType = item.makingChargeType;
 
@@ -73,6 +74,9 @@ const getItemTotal = (item: Partial<ItemFormData>): number => {
             break;
         case 'per_gram':
             makingCharge = makingChargeValue * netWeight;
+            break;
+        case 'per_item':
+            makingCharge = makingChargeValue * qty;
             break;
         }
     }
@@ -356,6 +360,7 @@ export default function EditInvoicePage() {
                                         <SelectItem value="percentage">%</SelectItem>
                                         <SelectItem value="flat">Flat</SelectItem>
                                         <SelectItem value="per_gram">/gm</SelectItem>
+                                        <SelectItem value="per_item">/item</SelectItem>
                                     </SelectContent>
                                 </Select>
                                 )}
@@ -451,3 +456,5 @@ export default function EditInvoicePage() {
     </form>
   );
 }
+
+    
