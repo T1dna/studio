@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PlusCircle, Search, MoreHorizontal, FileText, Printer, Trash2, Undo } from "lucide-react";
+import { PlusCircle, Search, MoreHorizontal, FileText, Printer, Trash2, Undo, Edit } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -80,6 +80,10 @@ export default function InvoicesPage() {
   
   const handleViewDetails = (invoiceId: string) => {
     router.push(`/dashboard/invoices/${invoiceId}`);
+  }
+
+  const handleEdit = (invoiceId: string) => {
+    router.push(`/dashboard/invoices/edit/${invoiceId}`);
   }
   
   const handlePrint = (invoiceId: string) => {
@@ -181,6 +185,10 @@ export default function InvoicesPage() {
                                 <DropdownMenuItem onClick={() => handleViewDetails(invoice.id)}>
                                     <FileText className="mr-2 h-4 w-4" />
                                     View Details
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleEdit(invoice.id)}>
+                                    <Edit className="mr-2 h-4 w-4" />
+                                    Edit
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handlePrint(invoice.id)}>
                                     <Printer className="mr-2 h-4 w-4" />
