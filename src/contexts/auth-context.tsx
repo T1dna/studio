@@ -7,6 +7,7 @@ import {
   Auth,
   User,
   signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
   signOut,
 } from 'firebase/auth';
 import { useFirebase } from '@/firebase/provider';
@@ -70,10 +71,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await signInWithEmailAndPassword(auth as Auth, email, password_raw);
       // Auth state change is handled by the useEffect hook
       return true;
-    } catch (error) {
+    } catch (error: any) {
+      // If user not found, create a new one.
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+        try {
+          await createUserWithEmailAndPassword(auth as Auth, email, password_raw);
+          return true;
+        } catch (createError) {
+          console.error("Firebase create user error:", createError);
+          return false;
+        }
+      }
       console.error("Firebase login error:", error);
-      // In a real app, you might want to create the user if they don't exist
-      // For this app, we'll assume the users are pre-created in Firebase Auth
       return false;
     }
   };
