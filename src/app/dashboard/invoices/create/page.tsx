@@ -33,9 +33,9 @@ const itemSchema = z.object({
   itemName: z.string().min(1, 'Item name is required'),
   qty: z.coerce.number().positive('Quantity must be positive'),
   hsn: z.string().optional(),
-  grossWeight: z.coerce.number().positive('Weight must be positive'),
+  grossWeight: z.coerce.number().nonnegative('Weight must be non-negative'),
   purity: z.string().optional(),
-  rate: z.coerce.number().positive('Rate must be positive'),
+  rate: z.coerce.number().nonnegative('Rate must be non-negative'),
   makingChargeType: z.enum(['percentage', 'flat', 'per_gram']),
   makingChargeValue: z.coerce.number().nonnegative('Making charge must be non-negative'),
 });
@@ -58,21 +58,25 @@ const getItemTotal = (item: Partial<ItemFormData>): number => {
     const makingChargeValue = Number(item.makingChargeValue) || 0;
     const makingChargeType = item.makingChargeType;
 
-    if (!grossWeight || !rate) return 0;
-    
     const baseAmount = grossWeight * rate;
 
     let makingCharge = 0;
-    switch (makingChargeType) {
-      case 'percentage':
-        makingCharge = baseAmount * (makingChargeValue / 100);
-        break;
-      case 'flat':
-        makingCharge = makingChargeValue;
-        break;
-      case 'per_gram':
-        makingCharge = makingChargeValue * grossWeight * qty;
-        break;
+    if (makingChargeValue > 0) {
+        switch (makingChargeType) {
+        case 'percentage':
+            if (baseAmount > 0) {
+                makingCharge = baseAmount * (makingChargeValue / 100);
+            }
+            break;
+        case 'flat':
+            makingCharge = makingChargeValue;
+            break;
+        case 'per_gram':
+            if (grossWeight > 0) {
+                makingCharge = makingChargeValue * grossWeight * qty;
+            }
+            break;
+        }
     }
   
     return baseAmount + makingCharge;
@@ -333,7 +337,7 @@ export default function InvoiceGeneratorPage() {
             </Table>
           </div>
 
-          <Button type="button" variant="outline" onClick={() => append({ itemName: '', qty: 1, hsn: '', grossWeight: 0, purity: '91.6', rate: 5000, makingChargeType: 'percentage', makingChargeValue: 10 })}>
+          <Button type="button" variant="outline" onClick={() => append({ itemName: '', qty: 1, hsn: '', grossWeight: 0, purity: '91.6', rate: 0, makingChargeType: 'flat', makingChargeValue: 0 })}>
             <PlusCircle className="mr-2" /> Add Item
           </Button>
 
@@ -389,5 +393,3 @@ export default function InvoiceGeneratorPage() {
     </form>
   );
 }
-
-    
