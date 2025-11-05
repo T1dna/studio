@@ -7,15 +7,25 @@ import { useInvoices, Invoice } from '@/contexts/invoices-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Loader2, PlusCircle } from 'lucide-react';
+import { ArrowLeft, Loader2, PlusCircle, Trash2, Edit, MoreHorizontal } from 'lucide-react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, CollectionReference, DocumentData, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, CollectionReference, DocumentData, addDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter as DialogFooterComponent, DialogTrigger } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { differenceInDays, differenceInMonths, differenceInQuarters, differenceInYears } from 'date-fns';
-
+import { differenceInMonths, differenceInQuarters, differenceInYears } from 'date-fns';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type Customer = {
   id: string;
@@ -48,11 +58,17 @@ type CalculatedInvoice = Invoice & {
 const calculateInterest = (invoice: Invoice, payments: Payment[]): { principalPaid: number, interestPaid: number, interestDue: number } => {
     const principal = invoice.amount;
     const rate = (invoice.interestRate || 0) / 100;
-    if (!invoice.dueDate || rate === 0) return { principalPaid: 0, interestPaid: 0, interestDue: 0 };
+    if (!invoice.dueDate || rate === 0) {
+        const principalPaid = payments.reduce((sum, p) => sum + (p.allocations[invoice.id]?.principal || 0), 0);
+        return { principalPaid, interestPaid: 0, interestDue: 0 };
+    }
     
     const dueDate = new Date(invoice.dueDate);
     const today = new Date();
-    if (today <= dueDate) return { principalPaid: 0, interestPaid: 0, interestDue: 0 };
+    if (today <= dueDate) {
+         const principalPaid = payments.reduce((sum, p) => sum + (p.allocations[invoice.id]?.principal || 0), 0);
+         return { principalPaid, interestPaid: 0, interestDue: 0 };
+    }
 
     // Aggregate payments for this invoice
     let principalPaid = 0;
@@ -102,6 +118,14 @@ export default function CustomerPaymentsPage() {
   const { invoices, loading: invoicesLoading } = useInvoices();
   const firestore = useFirestore();
 
+  // Dialog and Deletion State
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
+  const [paymentToDelete, setPaymentToDelete] = useState<string | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState<number>(0);
+  const [allocations, setAllocations] = useState<{[invoiceId: string]: { principal: number, interest: number } }>({});
+
+  
   const customersRef = useMemoFirebase(() => {
     if (!firestore) return null;
     return collection(firestore, 'customers') as CollectionReference<DocumentData>;
@@ -133,8 +157,8 @@ export default function CustomerPaymentsPage() {
             interestDue,
             totalDue,
         }
-    }).filter(inv => inv.totalDue > 0.01); // Filter out paid invoices
-  }, [invoices, payments, customerId]);
+    }).filter(inv => inv.totalDue > 0.01 || (editingPayment && editingPayment.allocations[inv.id])); // Also show invoices related to editing payment
+  }, [invoices, payments, customerId, editingPayment]);
   
   const totals = useMemo(() => {
     return calculatedInvoices.reduce((acc, inv) => {
@@ -145,38 +169,32 @@ export default function CustomerPaymentsPage() {
     }, { principal: 0, interest: 0, total: 0 });
   }, [calculatedInvoices]);
 
-
-  // Payment Dialog State
-  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
-  const [paymentAmount, setPaymentAmount] = useState<number>(0);
-  const [allocations, setAllocations] = useState<{[invoiceId: string]: { principal: number, interest: number } }>({});
-
   const unallocatedAmount = useMemo(() => {
     const totalAllocated = Object.values(allocations).reduce((sum, alloc) => sum + (alloc.principal || 0) + (alloc.interest || 0), 0);
     return paymentAmount - totalAllocated;
   }, [paymentAmount, allocations]);
 
-  const handleAllocationChange = (invoiceId: string, type: 'principal' | 'interest', value: number) => {
-    const invoice = calculatedInvoices.find(inv => inv.id === invoiceId);
-    if (!invoice) return;
 
-    const maxVal = type === 'principal' ? invoice.principalDue : invoice.interestDue;
-    const clampedValue = Math.max(0, Math.min(value, maxVal));
-    
-    setAllocations(prev => ({
-        ...prev,
-        [invoiceId]: {
-            ...(prev[invoiceId] || { principal: 0, interest: 0 }),
-            [type]: clampedValue
-        }
-    }));
-  };
-  
+  // --- CRUD Functions ---
   const resetPaymentDialog = () => {
     setPaymentAmount(0);
     setAllocations({});
+    setEditingPayment(null);
+    setIsPaymentDialogOpen(false);
   };
-  
+
+  const handleOpenNewPaymentDialog = () => {
+    resetPaymentDialog();
+    setIsPaymentDialogOpen(true);
+  }
+
+  const handleOpenEditDialog = (payment: Payment) => {
+    setEditingPayment(payment);
+    setPaymentAmount(payment.amount);
+    setAllocations(payment.allocations);
+    setIsPaymentDialogOpen(true);
+  }
+
   const handleRecordPayment = async () => {
     if (!firestore || !customerId) return;
     
@@ -191,29 +209,67 @@ export default function CustomerPaymentsPage() {
         return;
     }
     
-    // Filter out zero allocations
     const finalAllocations = Object.entries(allocations).reduce((acc, [id, values]) => {
-        if(values.principal > 0 || values.interest > 0) {
-            acc[id] = values;
-        }
+        if(values.principal > 0 || values.interest > 0) { acc[id] = values; }
         return acc;
     }, {} as {[invoiceId: string]: { principal: number, interest: number } });
     
     try {
-        await addDoc(collection(firestore, 'customers', customerId, 'payments'), {
-            date: serverTimestamp(),
-            amount: paymentAmount,
-            allocations: finalAllocations,
-        });
-        toast({ title: "Payment Recorded", description: "The payment has been successfully recorded."});
-        setIsPaymentDialogOpen(false);
+        if (editingPayment) {
+            const paymentDocRef = doc(firestore, 'customers', customerId, 'payments', editingPayment.id);
+            await updateDoc(paymentDocRef, {
+                amount: paymentAmount,
+                allocations: finalAllocations,
+            });
+            toast({ title: "Payment Updated", description: "The payment has been successfully updated."});
+        } else {
+             await addDoc(collection(firestore, 'customers', customerId, 'payments'), {
+                date: serverTimestamp(),
+                amount: paymentAmount,
+                allocations: finalAllocations,
+            });
+            toast({ title: "Payment Recorded", description: "The payment has been successfully recorded."});
+        }
         resetPaymentDialog();
     } catch (error) {
         console.error(error);
-        toast({ variant: 'destructive', title: "Error", description: "Failed to record payment." });
+        toast({ variant: 'destructive', title: "Error", description: "Failed to save payment." });
     }
   };
 
+  const handleDeletePayment = async () => {
+    if (!firestore || !customerId || !paymentToDelete) return;
+    try {
+        await deleteDoc(doc(firestore, 'customers', customerId, 'payments', paymentToDelete));
+        toast({ variant: 'destructive', title: "Payment Deleted", description: "The payment record has been removed."});
+        setPaymentToDelete(null);
+    } catch (error) {
+        console.error(error);
+        toast({ variant: 'destructive', title: "Error", description: "Failed to delete payment."});
+    }
+  }
+
+  const handleAllocationChange = (invoiceId: string, type: 'principal' | 'interest', value: number) => {
+    const invoice = calculatedInvoices.find(inv => inv.id === invoiceId);
+    if (!invoice) return;
+
+    let maxVal = type === 'principal' ? invoice.principalDue : invoice.interestDue;
+    if (editingPayment && editingPayment.allocations[invoiceId]) {
+        maxVal += editingPayment.allocations[invoiceId][type] || 0;
+    }
+
+    const clampedValue = Math.max(0, Math.min(value, maxVal));
+    
+    setAllocations(prev => ({
+        ...prev,
+        [invoiceId]: {
+            ...(prev[invoiceId] || { principal: 0, interest: 0 }),
+            [type]: clampedValue
+        }
+    }));
+  };
+
+  // --- Render ---
 
   const isLoading = invoicesLoading || customersLoading || paymentsLoading;
 
@@ -239,6 +295,7 @@ export default function CustomerPaymentsPage() {
   }
 
   return (
+    <>
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
@@ -251,20 +308,20 @@ export default function CustomerPaymentsPage() {
             </div>
         </div>
         <Dialog open={isPaymentDialogOpen} onOpenChange={(isOpen) => {
-            setIsPaymentDialogOpen(isOpen);
             if (!isOpen) resetPaymentDialog();
+            else setIsPaymentDialogOpen(true);
         }}>
             <DialogTrigger asChild>
-                <Button>
+                <Button onClick={handleOpenNewPaymentDialog}>
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Record Payment
                 </Button>
             </DialogTrigger>
             <DialogContent className="max-w-3xl">
                 <DialogHeader>
-                    <DialogTitle>Record Payment for {customer.name}</DialogTitle>
+                    <DialogTitle>{editingPayment ? 'Edit Payment' : `Record Payment for ${customer.name}`}</DialogTitle>
                     <DialogDescription>
-                        Enter the total payment amount and allocate it to the outstanding invoices.
+                        {editingPayment ? 'Adjust the payment amount and re-allocate it.' : 'Enter the total payment amount and allocate it to the outstanding invoices.'}
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-6 py-4">
@@ -309,7 +366,7 @@ export default function CustomerPaymentsPage() {
                                                 type="number"
                                                 value={allocations[invoice.id]?.principal || ''}
                                                 onChange={(e) => handleAllocationChange(invoice.id, 'principal', parseFloat(e.target.value))}
-                                                max={invoice.principalDue}
+                                                max={invoice.principalDue + (editingPayment?.allocations[invoice.id]?.principal || 0)}
                                                 min={0}
                                                 placeholder="0.00"
                                             />
@@ -319,7 +376,7 @@ export default function CustomerPaymentsPage() {
                                                 type="number"
                                                 value={allocations[invoice.id]?.interest || ''}
                                                 onChange={(e) => handleAllocationChange(invoice.id, 'interest', parseFloat(e.target.value))}
-                                                max={invoice.interestDue}
+                                                max={invoice.interestDue + (editingPayment?.allocations[invoice.id]?.interest || 0)}
                                                 min={0}
                                                 placeholder="0.00"
                                             />
@@ -332,8 +389,8 @@ export default function CustomerPaymentsPage() {
 
                 </div>
                 <DialogFooterComponent>
-                    <Button variant="outline" onClick={() => setIsPaymentDialogOpen(false)}>Cancel</Button>
-                    <Button onClick={handleRecordPayment}>Save Payment</Button>
+                    <Button variant="outline" onClick={resetPaymentDialog}>Cancel</Button>
+                    <Button onClick={handleRecordPayment}>{editingPayment ? 'Save Changes' : 'Save Payment'}</Button>
                 </DialogFooterComponent>
             </DialogContent>
         </Dialog>
@@ -361,7 +418,7 @@ export default function CustomerPaymentsPage() {
             </TableHeader>
             <TableBody>
               {calculatedInvoices.length > 0 ? (
-                calculatedInvoices.map((invoice: CalculatedInvoice) => (
+                calculatedInvoices.filter(inv => inv.totalDue > 0.01).map((invoice: CalculatedInvoice) => (
                   <TableRow key={invoice.id}>
                     <TableCell className="font-medium">{invoice.id}</TableCell>
                     <TableCell>{new Date(invoice.date).toLocaleDateString()}</TableCell>
@@ -391,6 +448,84 @@ export default function CustomerPaymentsPage() {
           </Table>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+            <CardTitle>Payment History</CardTitle>
+            <CardDescription>A log of all payments recorded for {customer.name}.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead className="text-right">Amount Paid</TableHead>
+                        <TableHead>Allocations</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {payments && payments.length > 0 ? (
+                        payments.sort((a,b) => b.date.seconds - a.date.seconds).map(payment => (
+                            <TableRow key={payment.id}>
+                                <TableCell>{new Date(payment.date.seconds * 1000).toLocaleDateString()}</TableCell>
+                                <TableCell className="text-right font-medium">₹{payment.amount.toFixed(2)}</TableCell>
+                                <TableCell>
+                                    <div className="flex flex-col gap-1 text-xs">
+                                    {Object.entries(payment.allocations).map(([invoiceId, allocation]) => (
+                                        <div key={invoiceId}>
+                                            <span className="font-semibold">{invoiceId}:</span>
+                                            {` P: ₹${allocation.principal.toFixed(2)} | I: ₹${allocation.interest.toFixed(2)}`}
+                                        </div>
+                                    ))}
+                                    </div>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4"/></Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent>
+                                            <DropdownMenuItem onClick={() => handleOpenEditDialog(payment)}>
+                                                <Edit className="mr-2 h-4 w-4" /> Edit
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem className="text-destructive" onClick={() => setPaymentToDelete(payment.id)}>
+                                                <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </TableCell>
+                            </TableRow>
+                        ))
+                    ) : (
+                        <TableRow>
+                            <TableCell colSpan={4} className="h-24 text-center">No payments recorded yet.</TableCell>
+                        </TableRow>
+                    )}
+                </TableBody>
+            </Table>
+        </CardContent>
+      </Card>
     </div>
+     <AlertDialog open={!!paymentToDelete} onOpenChange={(isOpen) => !isOpen && setPaymentToDelete(null)}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the payment record and update the customer's outstanding balance accordingly.
+            </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPaymentToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+                className="bg-destructive hover:bg-destructive/90"
+                onClick={handleDeletePayment}
+            >
+                Delete Payment
+            </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+   </>
   );
 }
