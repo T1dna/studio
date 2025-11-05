@@ -116,6 +116,17 @@ service cloud.firestore {
     match /roles_developer/{userId} {
       allow get, list, create, update, delete: if isDeveloper();
     }
+    
+    /**
+     * @description Allows any authenticated user to query the 'payments' collection group.
+     * @path /{path=**}/payments/{paymentId}
+     * @allow (list) - Any authenticated user can list payments across all customers.
+     * @principle Enables the global payment history view.
+     */
+    match /{path=**}/payments/{paymentId} {
+      allow list: if isSignedIn();
+    }
+
 
     // --- Helper Functions ---
 
