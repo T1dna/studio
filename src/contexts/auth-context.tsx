@@ -74,26 +74,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsProcessingLogin(false);
       return false;
     }
+
+    const ensureDeveloperRole = (user: User) => {
+      const role = userRoles[user.email || ''];
+      if (role === 'Developer') {
+        const roleDocRef = doc(firestore, 'roles_developer', user.uid);
+        setDocumentNonBlocking(roleDocRef, { uid: user.uid, role: 'Developer' });
+      }
+    };
     
     try {
-      await signInWithEmailAndPassword(auth, email, password_raw);
-      // Auth state change is handled by the useEffect hook
+      const userCredential = await signInWithEmailAndPassword(auth, email, password_raw);
+      ensureDeveloperRole(userCredential.user);
       setIsProcessingLogin(false);
       return true;
     } catch (error: any) {
-      // If user not found, create a new one.
       if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
         try {
           const userCredential = await createUserWithEmailAndPassword(auth, email, password_raw);
-          const newUser = userCredential.user;
-          const role = userRoles[email];
-
-          if (role === 'Developer') {
-            // This is the critical fix: Create the role document in Firestore for developers
-            const roleDocRef = doc(firestore, 'roles_developer', newUser.uid);
-            setDocumentNonBlocking(roleDocRef, { uid: newUser.uid, role: 'Developer' }, {});
-          }
-
+          ensureDeveloperRole(userCredential.user);
           setIsProcessingLogin(false);
           return true;
         } catch (createError) {
