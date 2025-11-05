@@ -53,7 +53,7 @@ service cloud.firestore {
      * @principle Restricts sensitive configuration data to authorized personnel.
      */
     match /business_settings/{businessSettingsId} {
-      allow get, list, create, update, delete: if isSignedIn() && isDeveloper();
+      allow get, list, create, update, delete: if isSignedIn() && request.auth.token.email == 'developer@test.com';
     }
 
     /**
@@ -99,7 +99,7 @@ service cloud.firestore {
     /**
      * @description Allows any authenticated user to create, read, update, and delete payment data under a specific customer.
      * @path /customers/{customerId}/payments/{paymentId}
-     * @allow (get, list, create, update, delete) - Any authenticated user can access payment data.
+     * @allow get, list, create, update, delete: if isSignedIn();
      * @principle Grants open access to payment data for all authenticated users.
      */
     match /customers/{customerId}/payments/{paymentId} {
