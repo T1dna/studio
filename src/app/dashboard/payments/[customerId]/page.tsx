@@ -270,8 +270,8 @@ export default function CustomerPaymentsPage() {
   const handleAllocationChange = (invoiceId: string, type: 'principal' | 'interest', value: string) => {
     const invoice = calculatedInvoices.find(inv => inv.id === invoiceId);
     if (!invoice) return;
-
-    // Allow user to clear the input
+  
+    // Allow user to clear the input or type a minus sign
     if (value === '' || value === '-') {
       setAllocations(prev => ({
           ...prev,
@@ -282,36 +282,40 @@ export default function CustomerPaymentsPage() {
       }));
       return;
     }
-
+  
     let maxVal = type === 'principal' ? invoice.principalDue : invoice.interestDue;
     if (editingPayment && editingPayment.allocations[invoiceId]) {
         maxVal += editingPayment.allocations[invoiceId][type] || 0;
     }
     
+    // Use a string-based check to avoid floating point issues
     const numericValue = parseFloat(value);
-    if (isNaN(numericValue)) return; // Ignore invalid numbers
-
-    // Round maxVal to avoid floating point comparison issues
-    maxVal = parseFloat(maxVal.toFixed(2));
-
-    const clampedValue = Math.max(0, Math.min(numericValue, maxVal));
-    const finalValue = String(clampedValue);
-
-    if (numericValue > maxVal) {
+    if (isNaN(numericValue)) return;
+  
+    // Compare with a small tolerance
+    if (numericValue > maxVal + 0.001) {
       toast({
           variant: 'destructive',
           title: 'Allocation Exceeded',
           description: `Cannot allocate more than the due amount of ₹${maxVal.toFixed(2)}.`
       });
+      // Clamp the value
+      setAllocations(prev => ({
+          ...prev,
+          [invoiceId]: {
+              ...(prev[invoiceId] || { principal: '', interest: '' }),
+              [type]: String(maxVal)
+          }
+      }));
+    } else {
+      setAllocations(prev => ({
+          ...prev,
+          [invoiceId]: {
+              ...(prev[invoiceId] || { principal: '', interest: '' }),
+              [type]: value
+          }
+      }));
     }
-
-    setAllocations(prev => ({
-        ...prev,
-        [invoiceId]: {
-            ...(prev[invoiceId] || { principal: '', interest: '' }),
-            [type]: finalValue
-        }
-    }));
   };
 
   // --- Render ---
@@ -507,9 +511,9 @@ export default function CustomerPaymentsPage() {
                 </TableHeader>
                 <TableBody>
                     {payments && payments.length > 0 ? (
-                        payments.sort((a,b) => b.date.seconds - a.date.seconds).map(payment => (
+                        payments.sort((a,b) => (b.date?.seconds ?? 0) - (a.date?.seconds ?? 0)).map(payment => (
                             <TableRow key={payment.id}>
-                                <TableCell>{new Date(payment.date.seconds * 1000).toLocaleDateString()}</TableCell>
+                                <TableCell>{payment.date ? new Date(payment.date.seconds * 1000).toLocaleDateString() : 'Pending...'}</TableCell>
                                 <TableCell className="text-right font-medium">₹{payment.amount.toFixed(2)}</TableCell>
                                 <TableCell>
                                     <div className="flex flex-col gap-1 text-xs">
@@ -570,5 +574,3 @@ export default function CustomerPaymentsPage() {
    </>
   );
 }
-
-    
