@@ -80,7 +80,10 @@ const getItemTotal = (item: Partial<ItemFormData>): number => {
             break;
         }
     }
-  
+    
+    if(baseAmount === 0 && qty > 0) return makingCharge;
+    if(baseAmount === 0) return 0;
+    
     return baseAmount + makingCharge;
   };
 

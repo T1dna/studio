@@ -81,7 +81,9 @@ const getItemTotal = (item: Partial<ItemFormData>): number => {
         }
     }
   
-    if(baseAmount === 0) return makingCharge;
+    if(baseAmount === 0 && qty > 0) return makingCharge;
+    if(baseAmount === 0) return 0;
+    
     return baseAmount + makingCharge;
   };
 
@@ -446,3 +448,5 @@ export default function InvoiceGeneratorPage() {
     </form>
   );
 }
+
+    
