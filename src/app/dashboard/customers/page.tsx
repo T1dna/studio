@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Table,
   TableBody,
@@ -33,6 +33,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, doc, addDoc, updateDoc, deleteDoc, CollectionReference, DocumentData } from 'firebase/firestore';
+import { setDocumentNonBlocking, addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 type Customer = {
   id: string;
@@ -40,7 +41,7 @@ type Customer = {
   fatherName?: string;
   businessName?: string;
   address?: string;
-  number?: string;
+  phone?: string;
   gstin?: string;
 };
 
@@ -64,30 +65,22 @@ export default function CustomersPage() {
     if (!firestore) return;
 
     const formData = new FormData(e.currentTarget);
-    const newCustomerData: { [key: string]: any } = {
+    const newCustomerData = {
       name: formData.get('name') as string,
       fatherName: formData.get('fatherName') as string || '',
       address: formData.get('address') as string || '',
-      number: formData.get('number') as string || '',
+      phone: formData.get('phone') as string || '',
+      businessName: formData.get('businessName') as string || '',
+      gstin: formData.get('gstin') as string || '',
     };
-
-    const businessName = formData.get('businessName') as string;
-    if (businessName) {
-      newCustomerData.businessName = businessName;
-    }
-
-    const gstin = formData.get('gstin') as string;
-    if (gstin) {
-      newCustomerData.gstin = gstin;
-    }
     
     try {
         if (editingCustomer) {
             const customerDocRef = doc(firestore, 'customers', editingCustomer.id);
-            await updateDoc(customerDocRef, newCustomerData);
+            updateDocumentNonBlocking(customerDocRef, newCustomerData);
             toast({ title: "Customer Updated", description: "The customer's details have been successfully updated." });
         } else {
-            await addDoc(collection(firestore, 'customers'), newCustomerData);
+            addDocumentNonBlocking(collection(firestore, 'customers'), newCustomerData);
             toast({ title: "Customer Added", description: "A new customer has been successfully added." });
         }
         setIsFormOpen(false);
@@ -107,7 +100,7 @@ export default function CustomersPage() {
     if (!firestore) return;
     try {
         const customerDocRef = doc(firestore, 'customers', customerId);
-        await deleteDoc(customerDocRef);
+        deleteDocumentNonBlocking(customerDocRef);
         toast({ variant: 'destructive', title: "Customer Deleted", description: "The customer has been removed." });
     } catch (err) {
        console.error(err);
@@ -127,7 +120,7 @@ export default function CustomersPage() {
       (customer.fatherName && customer.fatherName.toLowerCase().includes(searchTermLower)) ||
       (customer.businessName && customer.businessName.toLowerCase().includes(searchTermLower)) ||
       (customer.address && customer.address.toLowerCase().includes(searchTermLower)) ||
-      (customer.number && customer.number.toLowerCase().includes(searchTermLower)) ||
+      (customer.phone && customer.phone.toLowerCase().includes(searchTermLower)) ||
       (customer.gstin && customer.gstin.toLowerCase().includes(searchTermLower))
     );
   }) || [];
@@ -147,7 +140,10 @@ export default function CustomersPage() {
                         className="pl-10"
                     />
                  </div>
-                <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+                <Dialog open={isFormOpen} onOpenChange={(isOpen) => {
+                    setIsFormOpen(isOpen)
+                    if(!isOpen) setEditingCustomer(null);
+                }}>
                 <DialogTrigger asChild>
                     <Button onClick={openNewCustomerForm}>
                     <PlusCircle className="mr-2" />
@@ -180,8 +176,8 @@ export default function CustomersPage() {
                         <Input id="address" name="address" defaultValue={editingCustomer?.address} className="col-span-3" />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="number" className="text-right">Number</Label>
-                        <Input id="number" name="number" defaultValue={editingCustomer?.number} className="col-span-3" />
+                        <Label htmlFor="phone" className="text-right">Phone</Label>
+                        <Input id="phone" name="phone" defaultValue={editingCustomer?.phone} className="col-span-3" />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="gstin" className="text-right">GSTIN / PAN</Label>
@@ -211,7 +207,7 @@ export default function CustomersPage() {
                 <TableHead>Father's Name</TableHead>
                 <TableHead>Business Name</TableHead>
                 <TableHead>Address</TableHead>
-                <TableHead>Number</TableHead>
+                <TableHead>Phone</TableHead>
                 <TableHead>GSTIN / PAN</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -223,7 +219,7 @@ export default function CustomersPage() {
                     <TableCell>{customer.fatherName || '-'}</TableCell>
                     <TableCell>{customer.businessName || '-'}</TableCell>
                     <TableCell>{customer.address || '-'}</TableCell>
-                    <TableCell>{customer.number || '-'}</TableCell>
+                    <TableCell>{customer.phone || '-'}</TableCell>
                     <TableCell>{customer.gstin || '-'}</TableCell>
                     <TableCell className="text-right">
                     <DropdownMenu>
@@ -254,3 +250,5 @@ export default function CustomersPage() {
     </Card>
   );
 }
+
+    

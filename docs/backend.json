@@ -114,28 +114,13 @@
         "gstin": {
           "type": "string",
           "description": "Customer's GSTIN or PAN number."
-        },
-        "paymentTerms": {
-          "type": "number",
-          "description": "Payment terms in days."
-        },
-        "interestRate": {
-          "type": "number",
-          "description": "Monthly interest rate."
-        },
-        "interestCompound": {
-          "type": "string",
-          "description": "Interest compounding frequency (Monthly, Quarterly, Annually)."
         }
       },
       "required": [
         "id",
         "name",
         "phone",
-        "address",
-        "paymentTerms",
-        "interestRate",
-        "interestCompound"
+        "address"
       ]
     },
     "Item": {
@@ -291,7 +276,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Payment",
       "type": "object",
-      "description": "Represents a payment made against an invoice.",
+      "description": "Represents a payment made by a customer.",
       "properties": {
         "id": {
           "type": "string",
@@ -299,11 +284,7 @@
         },
         "customerId": {
           "type": "string",
-          "description": "Reference to Customer. (Relationship: Customer 1:N Payment)"
-        },
-        "invoiceId": {
-          "type": "string",
-          "description": "Reference to the specific Invoice being paid."
+          "description": "Reference to the customer making the payment."
         },
         "date": {
           "type": "string",
@@ -314,26 +295,25 @@
           "type": "number",
           "description": "Total amount paid."
         },
-        "amountPrincipal": {
-          "type": "number",
-          "description": "Portion of the payment applied to the principal amount."
-        },
-        "amountInterest": {
-          "type": "number",
-          "description": "Portion of the payment applied to the interest amount."
-        },
-        "paymentMethod": {
-          "type": "string",
-          "description": "Method of payment (e.g., Cash, Card, Online)."
+        "allocations": {
+          "type": "object",
+          "description": "An object mapping invoice IDs to the amounts applied to principal and interest.",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "principal": { "type": "number" },
+              "interest": { "type": "number" }
+            },
+            "required": ["principal", "interest"]
+          }
         }
       },
       "required": [
         "id",
         "customerId",
-        "invoiceId",
         "date",
         "amount",
-        "paymentMethod"
+        "allocations"
       ]
     }
   },
@@ -486,7 +466,7 @@
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to reflect the relationships between entities in the jewelry business accounting software, ensuring data integrity and enabling secure and efficient data access. Key to this design is adhering to Authorization Independence (CRITICAL).  This is achieved by storing authorization data within the documents themselves, avoiding the need for complex `get()` calls in security rules.  We're employing Path-Based ownership for user-specific data and a Membership Map model where applicable for collaborative access. This approach supports secure `list` operations (QAPs) by ensuring each collection maintains a homogeneous security posture.\n\nSpecifically:\n\n*   **Users:** `/users/{userId}` utilizes path-based ownership, making security rules straightforward (only the user can access their own data).\n*   **Business Settings:** `/business_settings/{businessSettingsId}`. Access is restricted to Developers, enforced through a dedicated `/roles_developer/{userId}` collection.  The existence of a document in this collection grants access.  This approach promotes Authorization Independence as access is determined locally within the rule, not by traversing the data hierarchy.\n*   **Customers:** `/customers/{customerId}`. All authenticated users can create and manage customers, but the data resides at the root level. \n*   **Items:** `/items/{itemId}`. All authenticated users can create and manage items, but the data resides at the root level. \n*   **Invoices:** `/invoices/{invoiceId}`.  Leverages the path-based ownership pattern `/customers/{customerId}/invoices/{invoiceId}` to associate invoices with customers and simplify authorization. This is a User 1:N Entity relationship.\n*   **InvoiceItems:** `/invoices/{invoiceId}/invoice_items/{invoiceItemId}`.  Mirrors the Invoice structure, creating a nested path for invoice items. This enforces ownership and maintains the 1:N relationship between invoices and invoice items.\n*   **Payments:**  `/customers/{customerId}/payments/{paymentId}`.  Employs path-based ownership to associate payments with the correct customer.  Access control is thus simplified and efficient.\n\nThis structure ensures that security rules can be written clearly and debugged easily, while also supporting the application's data access patterns. The design intentionally avoids complex hierarchical dependencies, promoting scalability and maintainability."
+    "reasoning": "The Firestore structure is designed to reflect the relationships between entities in the jewelry business accounting software, ensuring data integrity and enabling secure and efficient data access. Key to this design is adhering to Authorization Independence (CRITICAL).  This is achieved by storing authorization data within the documents themselves, avoiding the need for complex `get()` calls in security rules.  We're employing Path-Based ownership for user-specific data and a Membership Map model where applicable for collaborative access. This approach supports secure `list` operations (QAPs) by ensuring each collection maintains a homogeneous security posture.\n\nSpecifically:\n\n*   **Users:** `/users/{userId}` utilizes path-based ownership, making security rules straightforward (only the user can access their own data).\n*   **Business Settings:** `/business_settings/{businessSettingsId}`. Access is restricted to Developers, enforced through a dedicated `/roles_developer/{userId}` collection.  The existence of a document in this collection grants access.  This approach promotes Authorization Independence as access is determined locally within the rule, not by traversing the data hierarchy.\n*   **Customers:** `/customers/{customerId}`. All authenticated users can create and manage customers, but the data resides at the root level. \n*   **Items:** `/items/{itemId}`. All authenticated users can create and manage items, but the data resides at the root level. \n*   **Invoices:** `/customers/{customerId}/invoices/{invoiceId}`.  Leverages the path-based ownership pattern to associate invoices with customers and simplify authorization. This is a User 1:N Entity relationship.\n*   **InvoiceItems:** `/invoices/{invoiceId}/invoice_items/{invoiceItemId}`.  Mirrors the Invoice structure, creating a nested path for invoice items. This enforces ownership and maintains the 1:N relationship between invoices and invoice items.\n*   **Payments:**  `/customers/{customerId}/payments/{paymentId}`.  Employs path-based ownership to associate payments with the correct customer.  Access control is thus simplified and efficient.\n\nThis structure ensures that security rules can be written clearly and debugged easily, while also supporting the application's data access patterns. The design intentionally avoids complex hierarchical dependencies, promoting scalability and maintainability."
   }
 }
 
