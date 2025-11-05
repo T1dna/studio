@@ -103,7 +103,8 @@ const calculateInterest = (invoice: Invoice, payments: Payment[]): { principalPa
     
     // Simple compound interest for now. A more complex implementation would handle payments within periods.
     const totalCompoundInterest = outstandingPrincipal * (Math.pow(1 + rate, periods) - 1);
-    const interestDue = Math.max(0, totalCompoundInterest - interestPaid);
+    const rawInterestDue = totalCompoundInterest - interestPaid;
+    const interestDue = Math.max(0, parseFloat(rawInterestDue.toFixed(2)));
     
     return { principalPaid, interestPaid, interestDue };
 }
@@ -153,9 +154,9 @@ export default function CustomerPaymentsPage() {
         const totalDue = principalDue + interestDue;
         return {
             ...inv,
-            principalDue,
-            interestDue,
-            totalDue,
+            principalDue: parseFloat(principalDue.toFixed(2)),
+            interestDue: parseFloat(interestDue.toFixed(2)),
+            totalDue: parseFloat(totalDue.toFixed(2)),
         }
     }).filter(inv => inv.totalDue > 0.01 || (editingPayment && editingPayment.allocations[inv.id])); // Also show invoices related to editing payment
   }, [invoices, payments, customerId, editingPayment]);
@@ -175,7 +176,8 @@ export default function CustomerPaymentsPage() {
       const interest = parseFloat(alloc.interest) || 0;
       return sum + principal + interest;
     }, 0);
-    return paymentAmount - totalAllocated;
+    const result = paymentAmount - totalAllocated;
+    return parseFloat(result.toFixed(2));
   }, [paymentAmount, allocations]);
 
 
@@ -269,14 +271,31 @@ export default function CustomerPaymentsPage() {
     const invoice = calculatedInvoices.find(inv => inv.id === invoiceId);
     if (!invoice) return;
 
+    // Allow user to clear the input
+    if (value === '' || value === '-') {
+      setAllocations(prev => ({
+          ...prev,
+          [invoiceId]: {
+              ...(prev[invoiceId] || { principal: '', interest: '' }),
+              [type]: value
+          }
+      }));
+      return;
+    }
+
     let maxVal = type === 'principal' ? invoice.principalDue : invoice.interestDue;
     if (editingPayment && editingPayment.allocations[invoiceId]) {
         maxVal += editingPayment.allocations[invoiceId][type] || 0;
     }
     
-    const numericValue = parseFloat(value) || 0;
+    const numericValue = parseFloat(value);
+    if (isNaN(numericValue)) return; // Ignore invalid numbers
+
+    // Round maxVal to avoid floating point comparison issues
+    maxVal = parseFloat(maxVal.toFixed(2));
+
     const clampedValue = Math.max(0, Math.min(numericValue, maxVal));
-    const finalValue = value === '' ? '' : String(clampedValue);
+    const finalValue = String(clampedValue);
 
     if (numericValue > maxVal) {
       toast({
@@ -362,7 +381,7 @@ export default function CustomerPaymentsPage() {
                                 className="text-lg"
                             />
                         </div>
-                        <div className={`p-2 rounded-md text-sm font-medium ${unallocatedAmount < -0.01 ? 'bg-destructive/20 text-destructive' : 'bg-muted'}`}>
+                        <div className={`p-2 rounded-md text-sm font-medium ${unallocatedAmount < -0.001 ? 'bg-destructive/20 text-destructive' : 'bg-muted'}`}>
                            {unallocatedAmount.toFixed(2) !== '0.00' ? `Unallocated: ₹${unallocatedAmount.toFixed(2)}` : 'Fully Allocated'}
                         </div>
                     </div>
