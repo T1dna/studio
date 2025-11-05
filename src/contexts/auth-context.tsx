@@ -74,25 +74,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsProcessingLogin(false);
       return false;
     }
-
-    const ensureDeveloperRole = (user: User) => {
-      const role = userRoles[user.email || ''];
-      if (role === 'Developer') {
-        const roleDocRef = doc(firestore, 'roles_developer', user.uid);
-        setDocumentNonBlocking(roleDocRef, { uid: user.uid, role: 'Developer' });
-      }
-    };
     
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password_raw);
-      ensureDeveloperRole(userCredential.user);
+      // Try to sign in first
+      await signInWithEmailAndPassword(auth, email, password_raw);
       setIsProcessingLogin(false);
       return true;
     } catch (error: any) {
       if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+        // If user not found, create a new one
         try {
-          const userCredential = await createUserWithEmailAndPassword(auth, email, password_raw);
-          ensureDeveloperRole(userCredential.user);
+          await createUserWithEmailAndPassword(auth, email, password_raw);
           setIsProcessingLogin(false);
           return true;
         } catch (createError) {
