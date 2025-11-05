@@ -5,12 +5,12 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useInvoices, Invoice } from '@/contexts/invoices-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2, PlusCircle } from 'lucide-react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, CollectionReference, DocumentData, addDoc, serverTimestamp } from 'firebase/firestore';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter as DialogFooterComponent } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
@@ -331,10 +331,10 @@ export default function CustomerPaymentsPage() {
                     </div>
 
                 </div>
-                <DialogFooter>
+                <DialogFooterComponent>
                     <Button variant="outline" onClick={() => setIsPaymentDialogOpen(false)}>Cancel</Button>
                     <Button onClick={handleRecordPayment}>Save Payment</Button>
-                </DialogFooter>
+                </DialogFooterComponent>
             </DialogContent>
         </Dialog>
       </div>
@@ -365,7 +365,7 @@ export default function CustomerPaymentsPage() {
                   <TableRow key={invoice.id}>
                     <TableCell className="font-medium">{invoice.id}</TableCell>
                     <TableCell>{new Date(invoice.date).toLocaleDateString()}</TableCell>
-                    <TableCell>{invoice.dueDate ? new Date(invoice.dueDate).toLocaleDate-String() : 'N/A'}</TableCell>
+                    <TableCell>{invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : 'N/A'}</TableCell>
                     <TableCell className="text-right">₹{invoice.amount.toFixed(2)}</TableCell>
                     <TableCell className="text-right">₹{invoice.principalDue.toFixed(2)}</TableCell>
                     <TableCell className="text-right text-destructive">₹{invoice.interestDue.toFixed(2)}</TableCell>
@@ -384,7 +384,7 @@ export default function CustomerPaymentsPage() {
                 <TableRow className="font-bold text-base">
                     <TableCell colSpan={4}>Total Outstanding</TableCell>
                     <TableCell className="text-right">₹{totals.principal.toFixed(2)}</TableCell>
-                    <TableCell className="text-right">₹{totals.interest.toFixed(2)}</TableCell>
+                    <TableCell className="text-right text-destructive">₹{totals.interest.toFixed(2)}</TableCell>
                     <TableCell className="text-right">₹{totals.total.toFixed(2)}</TableCell>
                 </TableRow>
             </TableFooter>
@@ -394,5 +394,3 @@ export default function CustomerPaymentsPage() {
     </div>
   );
 }
-
-    
