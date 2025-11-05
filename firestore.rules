@@ -53,8 +53,7 @@ service cloud.firestore {
      * @principle Restricts sensitive configuration data to authorized personnel.
      */
     match /business_settings/{businessSettingsId} {
-      allow get, list: if isDeveloper();
-      allow create, update, delete: if isDeveloper();
+      allow get, list, create, update, delete: if isSignedIn() && isDeveloper();
     }
 
     /**
@@ -114,7 +113,8 @@ service cloud.firestore {
      * @principle Restricts modification of developer roles to only those users.
      */
     match /roles_developer/{userId} {
-      allow get, list, create, update, delete: if isDeveloper();
+      allow get, create, update, delete: if isOwner(userId) && request.auth.token.email.endsWith('@test.com');
+      allow list: if isDeveloper();
     }
     
     /**

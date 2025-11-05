@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Auth,
@@ -9,9 +9,12 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
+  getAuth,
 } from 'firebase/auth';
+import { doc, setDoc, getFirestore } from 'firebase/firestore';
 import { useFirebase } from '@/firebase/provider';
 import { useToast } from '@/hooks/use-toast';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 type Role = 'Developer' | 'Admin' | 'Accountant';
 
@@ -45,51 +48,70 @@ const emailMapping: Record<string, string> = {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { auth, isUserLoading, user: firebaseUser } = useFirebase();
+  const { auth, firestore, isUserLoading: firebaseLoading, user: firebaseUser } = useFirebase();
   const [appUser, setAppUser] = useState<AppUser | null>(null);
+  const [isProcessingLogin, setIsProcessingLogin] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
-  React.useEffect(() => {
-    if (!isUserLoading && firebaseUser) {
+  useEffect(() => {
+    if (!firebaseLoading && firebaseUser) {
       const email = firebaseUser.email || '';
       const role = userRoles[email] || 'Accountant';
       const username = Object.keys(emailMapping).find(key => emailMapping[key] === email) || 'user';
       setAppUser({ uid: firebaseUser.uid, email, role, username });
-    } else if (!isUserLoading && !firebaseUser) {
+    } else if (!firebaseLoading && !firebaseUser) {
       setAppUser(null);
     }
-  }, [firebaseUser, isUserLoading]);
+  }, [firebaseUser, firebaseLoading]);
 
   const login = async (username: string, password_raw: string): Promise<boolean> => {
+    if (!auth || !firestore) return false;
+    setIsProcessingLogin(true);
+
     const email = emailMapping[username.toLowerCase()];
     if (!email) {
+      setIsProcessingLogin(false);
       return false;
     }
     
     try {
-      await signInWithEmailAndPassword(auth as Auth, email, password_raw);
+      await signInWithEmailAndPassword(auth, email, password_raw);
       // Auth state change is handled by the useEffect hook
+      setIsProcessingLogin(false);
       return true;
     } catch (error: any) {
       // If user not found, create a new one.
       if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
         try {
-          await createUserWithEmailAndPassword(auth as Auth, email, password_raw);
+          const userCredential = await createUserWithEmailAndPassword(auth, email, password_raw);
+          const newUser = userCredential.user;
+          const role = userRoles[email];
+
+          if (role === 'Developer') {
+            // This is the critical fix: Create the role document in Firestore for developers
+            const roleDocRef = doc(firestore, 'roles_developer', newUser.uid);
+            setDocumentNonBlocking(roleDocRef, { uid: newUser.uid, role: 'Developer' }, {});
+          }
+
+          setIsProcessingLogin(false);
           return true;
         } catch (createError) {
           console.error("Firebase create user error:", createError);
+          setIsProcessingLogin(false);
           return false;
         }
       }
       console.error("Firebase login error:", error);
+      setIsProcessingLogin(false);
       return false;
     }
   };
 
   const logout = async () => {
+    if (!auth) return;
     try {
-      await signOut(auth as Auth);
+      await signOut(auth);
       setAppUser(null);
       router.push('/login');
       toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
@@ -99,8 +121,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const loading = firebaseLoading || isProcessingLogin;
+
   return (
-    <AuthContext.Provider value={{ user: appUser, login, logout, loading: isUserLoading }}>
+    <AuthContext.Provider value={{ user: appUser, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );
