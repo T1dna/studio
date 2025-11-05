@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, Fragment } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useInvoices, Invoice } from '@/contexts/invoices-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -70,7 +70,6 @@ const calculateInterest = (invoice: Invoice, payments: Payment[]): { principalPa
          return { principalPaid, interestPaid: 0, interestDue: 0 };
     }
 
-    // Aggregate payments for this invoice
     let principalPaid = 0;
     let interestPaid = 0;
     payments.forEach(p => {
@@ -101,12 +100,10 @@ const calculateInterest = (invoice: Invoice, payments: Payment[]): { principalPa
     const periods = getPeriods();
     if (periods <= 0) return { principalPaid, interestPaid, interestDue: 0 };
     
-    // Simple compound interest for now. A more complex implementation would handle payments within periods.
     const totalCompoundInterest = outstandingPrincipal * (Math.pow(1 + rate, periods) - 1);
     const rawInterestDue = totalCompoundInterest - interestPaid;
-    const interestDue = Math.max(0, parseFloat(rawInterestDue.toFixed(2)));
     
-    return { principalPaid, interestPaid, interestDue };
+    return { principalPaid, interestPaid, interestDue: Math.max(0, parseFloat(rawInterestDue.toFixed(2))) };
 }
 
 
@@ -119,11 +116,10 @@ export default function CustomerPaymentsPage() {
   const { invoices, loading: invoicesLoading } = useInvoices();
   const firestore = useFirestore();
 
-  // Dialog and Deletion State
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [paymentToDelete, setPaymentToDelete] = useState<string | null>(null);
-  const [paymentAmount, setPaymentAmount] = useState<number>(0);
+  const [paymentAmount, setPaymentAmount] = useState<string>("0");
   const [allocations, setAllocations] = useState<{[invoiceId: string]: { principal: string, interest: string } }>({});
 
   const customer = useMemo(() => {
@@ -154,7 +150,7 @@ export default function CustomerPaymentsPage() {
             interestDue: parseFloat(interestDue.toFixed(2)),
             totalDue: parseFloat(totalDue.toFixed(2)),
         }
-    }).filter(inv => inv.totalDue > 0.01 || (editingPayment && editingPayment.allocations[inv.id])); // Also show invoices related to editing payment
+    }).filter(inv => inv.totalDue > 0.01 || (editingPayment && editingPayment.allocations[inv.id]));
   }, [invoices, payments, customer, editingPayment]);
   
   const totals = useMemo(() => {
@@ -167,19 +163,19 @@ export default function CustomerPaymentsPage() {
   }, [calculatedInvoices]);
 
   const unallocatedAmount = useMemo(() => {
+    const totalPayment = parseFloat(paymentAmount) || 0;
     const totalAllocated = Object.values(allocations).reduce((sum, alloc) => {
       const principal = parseFloat(alloc.principal) || 0;
       const interest = parseFloat(alloc.interest) || 0;
       return sum + principal + interest;
     }, 0);
-    const result = paymentAmount - totalAllocated;
+    const result = totalPayment - totalAllocated;
     return parseFloat(result.toFixed(2));
   }, [paymentAmount, allocations]);
 
 
-  // --- CRUD Functions ---
   const resetPaymentDialog = () => {
-    setPaymentAmount(0);
+    setPaymentAmount("0");
     setAllocations({});
     setEditingPayment(null);
     setIsPaymentDialogOpen(false);
@@ -192,11 +188,11 @@ export default function CustomerPaymentsPage() {
 
   const handleOpenEditDialog = (payment: Payment) => {
     setEditingPayment(payment);
-    setPaymentAmount(payment.amount);
+    setPaymentAmount(String(payment.amount));
     const stringAllocations = Object.entries(payment.allocations).reduce((acc, [key, value]) => {
       acc[key] = {
-        principal: value.principal.toString(),
-        interest: value.interest.toString(),
+        principal: String(value.principal),
+        interest: String(value.interest),
       };
       return acc;
     }, {} as {[invoiceId: string]: { principal: string, interest: string } });
@@ -207,6 +203,8 @@ export default function CustomerPaymentsPage() {
   const handleRecordPayment = async () => {
     if (!firestore || !customerId) return;
     
+    const totalPaymentNum = parseFloat(paymentAmount) || 0;
+
     const numericAllocations = Object.entries(allocations).reduce((acc, [id, values]) => {
         const principal = parseFloat(values.principal) || 0;
         const interest = parseFloat(values.interest) || 0;
@@ -223,8 +221,8 @@ export default function CustomerPaymentsPage() {
         return;
     }
 
-    if (Math.abs(totalAllocated - paymentAmount) > 0.01) {
-        toast({ variant: 'destructive', title: "Allocation mismatch", description: `Allocated amount (₹${totalAllocated.toFixed(2)}) does not match total payment (₹${paymentAmount.toFixed(2)}).`});
+    if (Math.abs(totalAllocated - totalPaymentNum) > 0.01) {
+        toast({ variant: 'destructive', title: "Allocation mismatch", description: `Allocated amount (₹${totalAllocated.toFixed(2)}) does not match total payment (₹${totalPaymentNum.toFixed(2)}).`});
         return;
     }
     
@@ -232,14 +230,14 @@ export default function CustomerPaymentsPage() {
         if (editingPayment) {
             const paymentDocRef = doc(firestore, 'customers', customerId, 'payments', editingPayment.id);
             await updateDoc(paymentDocRef, {
-                amount: paymentAmount,
+                amount: totalPaymentNum,
                 allocations: numericAllocations,
             });
             toast({ title: "Payment Updated", description: "The payment has been successfully updated."});
         } else {
              await addDoc(collection(firestore, 'customers', customerId, 'payments'), {
                 date: serverTimestamp(),
-                amount: paymentAmount,
+                amount: totalPaymentNum,
                 allocations: numericAllocations,
             });
             toast({ title: "Payment Recorded", description: "The payment has been successfully recorded."});
@@ -267,14 +265,10 @@ export default function CustomerPaymentsPage() {
     const invoice = calculatedInvoices.find(inv => inv.id === invoiceId);
     if (!invoice) return;
   
-    // Allow user to clear the input or type a minus sign
-    if (value === '' || value === '-') {
+    if (value === '' || value === '-' || value.endsWith('.')) {
       setAllocations(prev => ({
           ...prev,
-          [invoiceId]: {
-              ...(prev[invoiceId] || { principal: '', interest: '' }),
-              [type]: value
-          }
+          [invoiceId]: { ...(prev[invoiceId] || { principal: '', interest: '' }), [type]: value }
       }));
       return;
     }
@@ -284,37 +278,33 @@ export default function CustomerPaymentsPage() {
         maxVal += editingPayment.allocations[invoiceId][type] || 0;
     }
     
-    // Use a string-based check to avoid floating point issues
     const numericValue = parseFloat(value);
-    if (isNaN(numericValue)) return;
+    if (isNaN(numericValue) || numericValue < 0) return;
   
-    // Compare with a small tolerance
     if (numericValue > maxVal + 0.001) {
       toast({
           variant: 'destructive',
           title: 'Allocation Exceeded',
           description: `Cannot allocate more than the due amount of ₹${maxVal.toFixed(2)}.`
       });
-      // Clamp the value
       setAllocations(prev => ({
           ...prev,
-          [invoiceId]: {
-              ...(prev[invoiceId] || { principal: '', interest: '' }),
-              [type]: String(maxVal)
-          }
+          [invoiceId]: { ...(prev[invoiceId] || { principal: '', interest: '' }), [type]: String(maxVal) }
       }));
     } else {
       setAllocations(prev => ({
           ...prev,
-          [invoiceId]: {
-              ...(prev[invoiceId] || { principal: '', interest: '' }),
-              [type]: value
-          }
+          [invoiceId]: { ...(prev[invoiceId] || { principal: '', interest: '' }), [type]: value }
       }));
     }
   };
-
-  // --- Render ---
+  
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (value === '' || /^[0-9]*\.?[0-9]{0,2}$/.test(value)) {
+        setPaymentAmount(value);
+    }
+  }
 
   const isLoading = invoicesLoading || paymentsLoading;
 
@@ -330,7 +320,7 @@ export default function CustomerPaymentsPage() {
   if (!customer) {
     return (
       <div className="text-center">
-        <p className="mb-4">Customer not found.</p>
+        <p className="mb-4">Customer not found, or they have no invoices.</p>
         <Button onClick={() => router.push('/dashboard/payments')}>
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Payments
@@ -340,7 +330,7 @@ export default function CustomerPaymentsPage() {
   }
 
   return (
-    <>
+    <Fragment>
       <div className="space-y-6">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -352,10 +342,7 @@ export default function CustomerPaymentsPage() {
                   <p className="text-muted-foreground">{customer.address}</p>
               </div>
           </div>
-          <Dialog open={isPaymentDialogOpen} onOpenChange={(isOpen) => {
-              if (!isOpen) resetPaymentDialog();
-              else setIsPaymentDialogOpen(true);
-          }}>
+          <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
               <DialogTrigger asChild>
                   <Button onClick={handleOpenNewPaymentDialog}>
                       <PlusCircle className="mr-2 h-4 w-4" />
@@ -377,17 +364,12 @@ export default function CustomerPaymentsPage() {
                                   id="payment-amount"
                                   type="text"
                                   value={paymentAmount}
-                                  onChange={(e) => {
-                                      const value = e.target.value;
-                                      if (value === '' || /^[0-9]*\.?[0-9]{0,2}$/.test(value)) {
-                                        setPaymentAmount(value === '' ? 0 : parseFloat(value));
-                                      }
-                                    }}
+                                  onChange={handleAmountChange}
                                   className="text-lg"
                               />
                           </div>
-                          <div className={`p-2 rounded-md text-sm font-medium ${unallocatedAmount < -0.001 ? 'bg-destructive/20 text-destructive' : 'bg-muted'}`}>
-                            {unallocatedAmount.toFixed(2) !== '0.00' ? `Unallocated: ₹${unallocatedAmount.toFixed(2)}` : 'Fully Allocated'}
+                           <div className={`p-2 rounded-md text-sm font-medium ${unallocatedAmount < -0.001 ? 'bg-destructive/20 text-destructive' : 'bg-muted'}`}>
+                            {Math.abs(unallocatedAmount) > 0.001 ? `Unallocated: ₹${unallocatedAmount.toFixed(2)}` : 'Fully Allocated'}
                           </div>
                       </div>
 
@@ -512,7 +494,7 @@ export default function CustomerPaymentsPage() {
                   </TableHeader>
                   <TableBody>
                       {payments && payments.length > 0 ? (
-                          payments.sort((a,b) => (b.date?.seconds ?? 0) - (a.date?.seconds ?? 0)).map(payment => (
+                          [...payments].sort((a,b) => (b.date?.seconds ?? 0) - (a.date?.seconds ?? 0)).map(payment => (
                               <TableRow key={payment.id}>
                                   <TableCell>{payment.date ? new Date(payment.date.seconds * 1000).toLocaleDateString() : 'Pending...'}</TableCell>
                                   <TableCell className="text-right font-medium">₹{payment.amount.toFixed(2)}</TableCell>
@@ -572,6 +554,6 @@ export default function CustomerPaymentsPage() {
               </AlertDialogFooter>
           </AlertDialogContent>
       </AlertDialog>
-    </>
+    </Fragment>
   );
 }

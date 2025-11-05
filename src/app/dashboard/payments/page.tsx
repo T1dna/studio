@@ -38,7 +38,6 @@ type Payment = {
         nanoseconds: number;
     };
     amount: number;
-    // This is not in the DB, we will add it
     customerName?: string;
     customerId: string;
 }
@@ -73,9 +72,7 @@ export default function PaymentsHistoryPage() {
       if (!payments) return [];
       
       const paymentsWithDetails = payments.map(p => {
-          // The ref is part of the raw doc data from useCollection and gives us the path.
           const ref = (p as any).ref;
-          // The path of a subcollection doc is customers/{customerId}/payments/{paymentId}
           const customerId = ref?.parent?.parent?.id || 'unknown';
           
           return {
@@ -85,13 +82,13 @@ export default function PaymentsHistoryPage() {
           }
       });
       
-      if (!searchTerm) return paymentsWithDetails;
+      if (!searchTerm) return paymentsWithDetails.sort((a,b) => (b.date?.seconds ?? 0) - (a.date?.seconds ?? 0));
 
       const term = searchTerm.toLowerCase();
       return paymentsWithDetails.filter(p => 
         p.customerName.toLowerCase().includes(term) ||
         p.amount.toString().includes(term)
-      );
+      ).sort((a,b) => (b.date?.seconds ?? 0) - (a.date?.seconds ?? 0));
 
   }, [payments, customerMap, searchTerm]);
 
@@ -173,7 +170,7 @@ export default function PaymentsHistoryPage() {
                 </TableHeader>
                 <TableBody>
                     {processedPayments.length > 0 ? (
-                        processedPayments.sort((a,b) => (b.date?.seconds ?? 0) - (a.date?.seconds ?? 0)).map((payment) => (
+                        processedPayments.map((payment) => (
                             <TableRow key={payment.id} >
                                 <TableCell>
                                     {payment.date ? new Date(payment.date.seconds * 1000).toLocaleDateString() : 'Pending...'}
