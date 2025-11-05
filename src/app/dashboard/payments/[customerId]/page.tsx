@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2, PlusCircle, Trash2, Edit, MoreHorizontal } from 'lucide-react';
-import { useCollection, useFirestore, useMemoFirebase, useDoc } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, doc, CollectionReference, DocumentData, addDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter as DialogFooterComponent, DialogTrigger } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -126,19 +126,17 @@ export default function CustomerPaymentsPage() {
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
   const [allocations, setAllocations] = useState<{[invoiceId: string]: { principal: string, interest: string } }>({});
 
-  
-  const customerRef = useMemoFirebase(() => {
-    if (!firestore || !customerId) return null;
-    return doc(firestore, 'customers', customerId) as DocumentReference<DocumentData>;
-  }, [firestore, customerId]);
+  const customer = useMemo(() => {
+    if (!invoices || !customerId) return null;
+    const invoiceForCustomer = invoices.find(inv => inv.customerId === customerId);
+    return invoiceForCustomer ? (invoiceForCustomer.customer as Customer) : null;
+  }, [invoices, customerId]);
   
   const paymentsRef = useMemoFirebase(() => {
     if (!firestore || !customerId) return null;
     return collection(firestore, 'customers', customerId, 'payments') as CollectionReference<DocumentData>;
   }, [firestore, customerId]);
 
-
-  const { data: customer, isLoading: customersLoading } = useDoc<Omit<Customer, 'id'>>(customerRef);
   const { data: payments, isLoading: paymentsLoading } = useCollection<Omit<Payment, 'id'>>(paymentsRef);
 
   const calculatedInvoices = useMemo((): CalculatedInvoice[] => {
@@ -318,7 +316,7 @@ export default function CustomerPaymentsPage() {
 
   // --- Render ---
 
-  const isLoading = invoicesLoading || customersLoading || paymentsLoading;
+  const isLoading = invoicesLoading || paymentsLoading;
 
   if (isLoading) {
     return (
@@ -377,9 +375,14 @@ export default function CustomerPaymentsPage() {
                             <Label htmlFor="payment-amount">Total Payment Amount</Label>
                             <Input 
                                 id="payment-amount"
-                                type="number"
+                                type="text"
                                 value={paymentAmount}
-                                onChange={(e) => setPaymentAmount(parseFloat(e.target.value) || 0)}
+                                onChange={(e) => {
+                                    const value = e.target.value;
+                                    if (value === '' || /^[0-9]*\.?[0-9]{0,2}$/.test(value)) {
+                                      setPaymentAmount(value === '' ? 0 : parseFloat(value));
+                                    }
+                                  }}
                                 className="text-lg"
                             />
                         </div>
@@ -559,7 +562,7 @@ export default function CustomerPaymentsPage() {
             </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setPaymentToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setPaymentToDelete(null)}>Cancel</Cancel>
             <AlertDialogAction
                 className="bg-destructive hover:bg-destructive/90"
                 onClick={handleDeletePayment}
@@ -572,3 +575,5 @@ export default function CustomerPaymentsPage() {
    </>
   );
 }
+
+    
