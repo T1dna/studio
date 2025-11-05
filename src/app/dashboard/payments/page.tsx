@@ -13,10 +13,13 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Loader2, ArrowRight } from "lucide-react";
+import { Search, Loader2, PlusCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, CollectionReference, DocumentData } from 'firebase/firestore';
+import { collection, collectionGroup, CollectionReference, DocumentData, Query } from 'firebase/firestore';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 
 type Customer = {
   id: string;
@@ -28,86 +31,158 @@ type Customer = {
   gstin?: string;
 };
 
-export default function PaymentsLandingPage() {
+type Payment = {
+    id: string;
+    date: {
+        seconds: number;
+        nanoseconds: number;
+    };
+    amount: number;
+    // This is not in the DB, we will add it
+    customerName?: string;
+    customerId: string;
+}
+
+export default function PaymentsHistoryPage() {
   const router = useRouter();
   const firestore = useFirestore();
   const [searchTerm, setSearchTerm] = useState("");
+  const [isCustomerSelectOpen, setIsCustomerSelectOpen] = useState(false);
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
 
+  // Fetch all customers to map IDs to names
   const customersRef = useMemoFirebase(() => {
     if (!firestore) return null;
     return collection(firestore, 'customers') as CollectionReference<DocumentData>;
   }, [firestore]);
+  const { data: customers, isLoading: customersLoading } = useCollection<Omit<Customer, 'id'>>(customersRef);
 
-  const { data: customers, isLoading: loading } = useCollection<Omit<Customer, 'id'>>(customersRef);
+  // Fetch all payments using a collection group query
+  const paymentsQuery = useMemoFirebase(() => {
+      if(!firestore) return null;
+      return collectionGroup(firestore, 'payments') as Query<DocumentData>;
+  }, [firestore]);
+  const { data: payments, isLoading: paymentsLoading } = useCollection<Omit<Payment, 'id'>>(paymentsQuery);
 
-  const filteredCustomers = useMemo(() => {
-    const term = searchTerm.toLowerCase();
-    if (!customers) return [];
-    if (!term) return customers;
-    return customers.filter(customer =>
-      customer.name.toLowerCase().includes(term) ||
-      (customer.fatherName && customer.fatherName.toLowerCase().includes(term)) ||
-      (customer.businessName && customer.businessName.toLowerCase().includes(term)) ||
-      (customer.number && customer.number.toLowerCase().includes(term))
-    );
-  }, [customers, searchTerm]);
+  const customerMap = useMemo(() => {
+      if (!customers) return new Map();
+      return new Map(customers.map(c => [c.id, c.name]));
+  }, [customers]);
 
-  const handleManagePayments = (customerId: string) => {
-    router.push(`/dashboard/payments/${customerId}`);
+  const processedPayments = useMemo(() => {
+      if (!payments) return [];
+      
+      const paymentsWithDetails = payments.map(p => {
+          // The path of a subcollection doc is customers/{id}/payments/{paymentId}
+          const pathParts = (p as any).ref?.path.split('/');
+          const customerId = pathParts ? pathParts[1] : 'unknown';
+          return {
+            ...p,
+            customerId: customerId,
+            customerName: customerMap.get(customerId) || 'Unknown Customer',
+          }
+      });
+      
+      if (!searchTerm) return paymentsWithDetails;
+
+      const term = searchTerm.toLowerCase();
+      return paymentsWithDetails.filter(p => 
+        p.customerName.toLowerCase().includes(term) ||
+        p.amount.toString().includes(term)
+      );
+
+  }, [payments, customerMap, searchTerm]);
+
+  const handleGoToCustomer = () => {
+    if (selectedCustomerId) {
+      router.push(`/dashboard/payments/${selectedCustomerId}`);
+    }
   };
+  
+  const isLoading = customersLoading || paymentsLoading;
 
   return (
+    <>
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between gap-4">
-            <CardTitle>Payments</CardTitle>
-            <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input 
-                    placeholder="Search customers..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                />
+            <CardTitle>Payment History</CardTitle>
+            <div className="flex items-center gap-2">
+                 <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                        placeholder="Search payments..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10"
+                    />
+                 </div>
+                 <Dialog open={isCustomerSelectOpen} onOpenChange={setIsCustomerSelectOpen}>
+                    <DialogTrigger asChild>
+                        <Button>
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            Record Payment
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Select Customer</DialogTitle>
+                            <DialogDescription>
+                                Choose a customer to record or manage their payments.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="py-4 space-y-2">
+                           <Label htmlFor="customer-select">Customer</Label>
+                            <Select onValueChange={setSelectedCustomerId} value={selectedCustomerId}>
+                                <SelectTrigger id="customer-select">
+                                    <SelectValue placeholder={customersLoading ? "Loading..." : "Select a customer"} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {!customersLoading && customers?.map(c => (
+                                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <DialogFooter>
+                            <Button variant="outline" onClick={() => setIsCustomerSelectOpen(false)}>Cancel</Button>
+                            <Button onClick={handleGoToCustomer} disabled={!selectedCustomerId}>Manage Payments</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                 </Dialog>
             </div>
         </div>
       </CardHeader>
       <CardContent>
-        {loading ? (
+        {isLoading ? (
           <div className="flex justify-center items-center h-48">
             <Loader2 className="h-8 w-8 animate-spin" />
-            <p className="ml-2">Loading Customers...</p>
+            <p className="ml-2">Loading Payments...</p>
           </div>
         ) : (
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead>Customer Name</TableHead>
-                        <TableHead>Father's Name</TableHead>
-                        <TableHead>Business Name</TableHead>
-                        <TableHead>Contact Number</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
+                        <TableHead>Payment Date</TableHead>
+                        <TableHead>Customer</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {filteredCustomers.length > 0 ? (
-                        filteredCustomers.map((customer) => (
-                            <TableRow key={customer.id}>
-                                <TableCell className="font-medium">{customer.name}</TableCell>
-                                <TableCell>{customer.fatherName || '-'}</TableCell>
-                                <TableCell>{customer.businessName || '-'}</TableCell>
-                                <TableCell>{customer.number || '-'}</TableCell>
-                                <TableCell className="text-right">
-                                    <Button variant="outline" size="sm" onClick={() => handleManagePayments(customer.id)}>
-                                        Manage Payments <ArrowRight className="ml-2 h-4 w-4" />
-                                    </Button>
+                    {processedPayments.length > 0 ? (
+                        processedPayments.sort((a,b) => b.date.seconds - a.date.seconds).map((payment) => (
+                            <TableRow key={payment.id} onClick={() => router.push(`/dashboard/payments/${payment.customerId}`)} className="cursor-pointer">
+                                <TableCell>
+                                    {new Date(payment.date.seconds * 1000).toLocaleDateString()}
                                 </TableCell>
+                                <TableCell className="font-medium">{payment.customerName}</TableCell>
+                                <TableCell className="text-right">₹{payment.amount.toFixed(2)}</TableCell>
                             </TableRow>
                         ))
                     ) : (
                          <TableRow>
-                            <TableCell colSpan={5} className="text-center h-24">
-                                No customers found.
+                            <TableCell colSpan={3} className="text-center h-24">
+                                No payments recorded yet.
                             </TableCell>
                         </TableRow>
                     )}
@@ -116,7 +191,6 @@ export default function PaymentsLandingPage() {
         )}
       </CardContent>
     </Card>
+    </>
   );
 }
-
-    
