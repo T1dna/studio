@@ -291,7 +291,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Payment",
       "type": "object",
-      "description": "Represents a payment made by a customer.",
+      "description": "Represents a payment made against an invoice.",
       "properties": {
         "id": {
           "type": "string",
@@ -303,23 +303,37 @@
         },
         "invoiceId": {
           "type": "string",
-          "description": "Reference to Invoice. (Relationship: Invoice 1:N Payment)"
+          "description": "Reference to the specific Invoice being paid."
+        },
+        "date": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Date the payment was made."
+        },
+        "amount": {
+          "type": "number",
+          "description": "Total amount paid."
         },
         "amountPrincipal": {
           "type": "number",
-          "description": "Principal amount paid."
+          "description": "Portion of the payment applied to the principal amount."
         },
         "amountInterest": {
           "type": "number",
-          "description": "Interest amount paid."
+          "description": "Portion of the payment applied to the interest amount."
+        },
+        "paymentMethod": {
+          "type": "string",
+          "description": "Method of payment (e.g., Cash, Card, Online)."
         }
       },
       "required": [
         "id",
         "customerId",
         "invoiceId",
-        "amountPrincipal",
-        "amountInterest"
+        "date",
+        "amount",
+        "paymentMethod"
       ]
     }
   },

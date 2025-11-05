@@ -1,7 +1,8 @@
 
 "use client";
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Table,
   TableBody,
@@ -11,255 +12,111 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { PlusCircle, MoreHorizontal, Trash2, Edit, Search } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Search, Loader2, ArrowRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useToast } from '@/hooks/use-toast';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, CollectionReference, DocumentData } from 'firebase/firestore';
 
-type Payment = {
+type Customer = {
   id: string;
-  invoiceId: string;
-  customerName: string;
-  amount: number;
-  date: string;
-  paymentMethod: 'Cash' | 'Card' | 'Online';
+  name: string;
+  fatherName?: string;
+  businessName?: string;
+  address?: string;
+  number?: string;
+  gstin?: string;
 };
 
-const initialPayments: Payment[] = [
-  { id: 'PAY-001', invoiceId: 'INV-2024001', customerName: 'Rohan Sharma', amount: 25750, date: '2024-07-15', paymentMethod: 'Cash' },
-  { id: 'PAY-002', invoiceId: 'INV-2024002', customerName: 'Priya Patel', amount: 10000, date: '2024-07-18', paymentMethod: 'Online' },
-  { id: 'PAY-003', invoiceId: 'INV-2024002', customerName: 'Priya Patel', amount: 5000, date: '2024-07-20', paymentMethod: 'Card' },
-];
-
-// Mock data for dropdowns
-const mockInvoices = [
-    { id: 'INV-2024001', customerName: 'Rohan Sharma' },
-    { id: 'INV-2024002', customerName: 'Priya Patel' },
-];
-
-
-export default function PaymentsPage() {
-  const { toast } = useToast();
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
+export default function PaymentsLandingPage() {
+  const router = useRouter();
+  const firestore = useFirestore();
   const [searchTerm, setSearchTerm] = useState("");
 
-  useEffect(() => {
-    try {
-      const storedPaymentsRaw = localStorage.getItem('gems-payments');
-      if (storedPaymentsRaw) {
-        setPayments(JSON.parse(storedPaymentsRaw));
-      } else {
-        setPayments(initialPayments);
-        localStorage.setItem('gems-payments', JSON.stringify(initialPayments));
-      }
-    } catch (error) {
-      console.error("Failed to parse payments from localStorage", error);
-      setPayments(initialPayments);
-    }
-  }, []);
+  const customersRef = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'customers') as CollectionReference<DocumentData>;
+  }, [firestore]);
 
-  const updatePaymentsStateAndStorage = (newPayments: Payment[]) => {
-    setPayments(newPayments);
-    localStorage.setItem('gems-payments', JSON.stringify(newPayments));
+  const { data: customers, isLoading: loading } = useCollection<Omit<Customer, 'id'>>(customersRef);
+
+  const filteredCustomers = useMemo(() => {
+    const term = searchTerm.toLowerCase();
+    if (!customers) return [];
+    if (!term) return customers;
+    return customers.filter(customer =>
+      customer.name.toLowerCase().includes(term) ||
+      (customer.fatherName && customer.fatherName.toLowerCase().includes(term)) ||
+      (customer.businessName && customer.businessName.toLowerCase().includes(term)) ||
+      (customer.number && customer.number.toLowerCase().includes(term))
+    );
+  }, [customers, searchTerm]);
+
+  const handleManagePayments = (customerId: string) => {
+    router.push(`/dashboard/payments/${customerId}`);
   };
-
-
-  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const invoiceId = formData.get('invoiceId') as string;
-    const selectedInvoice = mockInvoices.find(inv => inv.id === invoiceId);
-
-    const newPaymentData: Payment = {
-      id: editingPayment?.id || `PAY-00${payments.length + 1}`,
-      invoiceId,
-      customerName: selectedInvoice?.customerName || 'N/A',
-      amount: parseFloat(formData.get('amount') as string),
-      date: formData.get('date') as string,
-      paymentMethod: formData.get('paymentMethod') as 'Cash' | 'Card' | 'Online',
-    };
-
-    if (editingPayment) {
-      const updatedPayments = payments.map(p => p.id === editingPayment.id ? newPaymentData : p);
-      updatePaymentsStateAndStorage(updatedPayments);
-      toast({ title: "Payment Updated", description: "The payment record has been successfully updated." });
-    } else {
-      const updatedPayments = [...payments, newPaymentData];
-      updatePaymentsStateAndStorage(updatedPayments);
-      toast({ title: "Payment Added", description: "A new payment has been successfully recorded." });
-    }
-
-    setIsFormOpen(false);
-    setEditingPayment(null);
-  };
-
-  const handleEdit = (payment: Payment) => {
-    setEditingPayment({
-        ...payment,
-        date: new Date(payment.date).toISOString().split('T')[0] // Format date for input
-    });
-    setIsFormOpen(true);
-  };
-  
-  const handleDelete = (paymentId: string) => {
-    const updatedPayments = payments.filter(p => p.id !== paymentId);
-    updatePaymentsStateAndStorage(updatedPayments);
-    toast({ variant: 'destructive', title: "Payment Deleted", description: "The payment record has been removed." });
-  };
-
-  const openNewPaymentForm = () => {
-    setEditingPayment(null);
-    setIsFormOpen(true);
-  }
-
-  const filteredPayments = useMemo(() =>
-    payments.filter(payment =>
-      payment.invoiceId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      payment.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      payment.paymentMethod.toLowerCase().includes(searchTerm.toLowerCase())
-  ), [payments, searchTerm]);
 
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between gap-4">
-            <CardTitle>Payment Management</CardTitle>
-            <div className="flex items-center gap-2">
-                 <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                        placeholder="Search payments..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10"
-                    />
-                 </div>
-                <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-                <DialogTrigger asChild>
-                    <Button onClick={openNewPaymentForm}>
-                    <PlusCircle className="mr-2" />
-                    Add Payment
-                    </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                    <DialogTitle>{editingPayment ? 'Edit Payment' : 'Add New Payment'}</DialogTitle>
-                    <DialogDescription>
-                        {editingPayment ? 'Update the details of the payment.' : 'Fill in the details to record a new payment.'}
-                    </DialogDescription>
-                    </DialogHeader>
-                    <form onSubmit={handleFormSubmit}>
-                    <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="invoiceId" className="text-right">Invoice #</Label>
-                             <Select name="invoiceId" defaultValue={editingPayment?.invoiceId} required>
-                                <SelectTrigger className="col-span-3">
-                                    <SelectValue placeholder="Select an invoice" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {mockInvoices.map(inv => (
-                                        <SelectItem key={inv.id} value={inv.id}>{inv.id} ({inv.customerName})</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="amount" className="text-right">Amount</Label>
-                            <Input id="amount" name="amount" type="number" step="0.01" defaultValue={editingPayment?.amount} className="col-span-3" required />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="date" className="text-right">Date</Label>
-                            <Input id="date" name="date" type="date" defaultValue={editingPayment?.date || new Date().toISOString().split('T')[0]} className="col-span-3" required />
-                        </div>
-                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="paymentMethod" className="text-right">Method</Label>
-                            <Select name="paymentMethod" defaultValue={editingPayment?.paymentMethod || 'Cash'} required>
-                                <SelectTrigger className="col-span-3">
-                                    <SelectValue placeholder="Select a method" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="Cash">Cash</SelectItem>
-                                    <SelectItem value="Card">Card</SelectItem>
-                                    <SelectItem value="Online">Online</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button type="submit">{editingPayment ? 'Save Changes' : 'Add Payment'}</Button>
-                    </DialogFooter>
-                    </form>
-                </DialogContent>
-                </Dialog>
+            <CardTitle>Payments</CardTitle>
+            <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input 
+                    placeholder="Search customers..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                />
             </div>
         </div>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Payment ID</TableHead>
-              <TableHead>Invoice #</TableHead>
-              <TableHead>Customer</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Method</TableHead>
-              <TableHead className="text-right">Amount</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredPayments.map((payment) => (
-              <TableRow key={payment.id}>
-                <TableCell className="font-medium">{payment.id}</TableCell>
-                <TableCell>{payment.invoiceId}</TableCell>
-                <TableCell>{payment.customerName}</TableCell>
-                <TableCell>{new Date(payment.date).toLocaleDateString()}</TableCell>
-                <TableCell>{payment.paymentMethod}</TableCell>
-                <TableCell className="text-right">₹{payment.amount.toFixed(2)}</TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
-                        <span className="sr-only">Open menu</span>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleEdit(payment)}>
-                        <Edit className="mr-2 h-4 w-4" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(payment.id)}>
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        {loading ? (
+          <div className="flex justify-center items-center h-48">
+            <Loader2 className="h-8 w-8 animate-spin" />
+            <p className="ml-2">Loading Customers...</p>
+          </div>
+        ) : (
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Customer Name</TableHead>
+                        <TableHead>Father's Name</TableHead>
+                        <TableHead>Business Name</TableHead>
+                        <TableHead>Contact Number</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {filteredCustomers.length > 0 ? (
+                        filteredCustomers.map((customer) => (
+                            <TableRow key={customer.id}>
+                                <TableCell className="font-medium">{customer.name}</TableCell>
+                                <TableCell>{customer.fatherName || '-'}</TableCell>
+                                <TableCell>{customer.businessName || '-'}</TableCell>
+                                <TableCell>{customer.number || '-'}</TableCell>
+                                <TableCell className="text-right">
+                                    <Button variant="outline" size="sm" onClick={() => handleManagePayments(customer.id)}>
+                                        Manage Payments <ArrowRight className="ml-2 h-4 w-4" />
+                                    </Button>
+                                </TableCell>
+                            </TableRow>
+                        ))
+                    ) : (
+                         <TableRow>
+                            <TableCell colSpan={5} className="text-center h-24">
+                                No customers found.
+                            </TableCell>
+                        </TableRow>
+                    )}
+                </TableBody>
+            </Table>
+        )}
       </CardContent>
     </Card>
   );
 }
+
+    
