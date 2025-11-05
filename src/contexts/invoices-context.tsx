@@ -35,6 +35,7 @@ interface InvoicesContextType {
   deleteInvoice: (id: string) => void;
   recoverInvoice: (id: string) => void;
   getInvoice: (id: string) => Invoice | undefined;
+  generateInvoiceNumber: (isTaxInvoice: boolean) => string;
   loading: boolean;
   businessDetails: BusinessDetails;
   updateBusinessDetails: (details: BusinessDetails) => void;
@@ -45,15 +46,15 @@ const InvoicesContext = createContext<InvoicesContextType | undefined>(undefined
 
 const mockInvoices: Invoice[] = [
   { 
-    id: 'INV-2024001', customerName: 'Rohan Sharma', date: '2024-07-15', amount: 25750, status: 'Paid',
-    items: [{ itemName: 'Gold Ring', qty: 1, netWeight: 5, rate: 24000, makingChargeType: 'flat', makingChargeValue: 1000 }],
+    id: 'INV-240700001', customerName: 'Rohan Sharma', date: '2024-07-15', amount: 25750, status: 'Paid',
+    items: [{ itemName: 'Gold Ring', qty: 1, netWeight: 5, rate: 24000, makingChargeType: 'flat', makingChargeValue: 1000, applyGst: true }],
     totals: { subtotal: 25000, discount: 0, gst: 750, total: 25750 },
     customer: { id: 'CUST-001', name: 'Rohan Sharma', address: '123 Diamond Street, Jaipur', gstin: '08AAAAA0000A1Z5' },
     paymentMode: 'Cash'
   },
   { 
-    id: 'INV-2024002', customerName: 'Priya Patel', date: '2024-07-12', amount: 15000, status: 'Pending',
-    items: [{ itemName: 'Silver Chain', qty: 1, netWeight: 50, rate: 15000, makingChargeType: 'percentage', makingChargeValue: 0 }],
+    id: 'CSH-240700001', customerName: 'Priya Patel', date: '2024-07-12', amount: 15000, status: 'Pending',
+    items: [{ itemName: 'Silver Chain', qty: 1, netWeight: 50, rate: 15000, makingChargeType: 'percentage', makingChargeValue: 0, applyGst: false }],
     totals: { subtotal: 15000, discount: 0, gst: 0, total: 15000 },
     customer: { id: 'CUST-002', name: 'Priya Patel', address: '456 Ruby Lane, Mumbai', gstin: '' },
     paymentMode: 'Online'
@@ -113,6 +114,33 @@ export function InvoicesProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const generateInvoiceNumber = useCallback((isTaxInvoice: boolean): string => {
+    const prefix = isTaxInvoice ? 'INV' : 'CSH';
+    const now = new Date();
+    const year = now.getFullYear().toString().slice(-2);
+    const month = (now.getMonth() + 1).toString().padStart(2, '0');
+    const seriesPrefix = `${prefix}-${year}${month}`;
+
+    const relevantInvoices = invoices.filter(inv => inv.id.startsWith(seriesPrefix));
+
+    let nextNumber = 1;
+    if (relevantInvoices.length > 0) {
+        const lastInvoice = relevantInvoices.sort((a, b) => {
+            const numA = parseInt(a.id.split(seriesPrefix)[1], 10);
+            const numB = parseInt(b.id.split(seriesPrefix)[1], 10);
+            return numA - numB;
+        }).pop();
+        
+        if (lastInvoice) {
+            const lastNum = parseInt(lastInvoice.id.split(seriesPrefix)[1], 10);
+            nextNumber = lastNum + 1;
+        }
+    }
+    
+    return `${seriesPrefix}${nextNumber.toString().padStart(5, '0')}`;
+  }, [invoices]);
+
+
   const addInvoice = (invoice: Invoice) => {
     const updatedInvoices = [...invoices, { ...invoice, isDeleted: false }];
     setInvoices(updatedInvoices);
@@ -151,7 +179,7 @@ export function InvoicesProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <InvoicesContext.Provider value={{ invoices, addInvoice, updateInvoice, deleteInvoice, recoverInvoice, getInvoice, loading, businessDetails, updateBusinessDetails }}>
+    <InvoicesContext.Provider value={{ invoices, addInvoice, updateInvoice, deleteInvoice, recoverInvoice, getInvoice, generateInvoiceNumber, loading, businessDetails, updateBusinessDetails }}>
       {children}
     </InvoicesContext.Provider>
   );

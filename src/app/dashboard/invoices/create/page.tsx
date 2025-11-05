@@ -57,11 +57,11 @@ type ItemFormData = z.infer<typeof itemSchema>;
 const getItemTotal = (item: Partial<ItemFormData>): number => {
     const rate = Number(item.rate) || 0;
     const netWeight = Number(item.netWeight) || 0;
-    const qty = Number(item.qty) || 0;
+    const qty = Number(item.qty) || 1;
     const makingChargeValue = Number(item.makingChargeValue) || 0;
     const makingChargeType = item.makingChargeType;
 
-    const baseAmount = netWeight * rate;
+    let baseAmount = netWeight * rate;
 
     let makingCharge = 0;
     if (makingChargeValue > 0) {
@@ -81,13 +81,14 @@ const getItemTotal = (item: Partial<ItemFormData>): number => {
         }
     }
   
+    if(baseAmount === 0) return makingCharge;
     return baseAmount + makingCharge;
   };
 
 
 export default function InvoiceGeneratorPage() {
   const { toast } = useToast();
-  const { addInvoice, businessDetails } = useInvoices();
+  const { addInvoice, businessDetails, generateInvoiceNumber } = useInvoices();
   const router = useRouter();
   const firestore = useFirestore();
   const [invoiceDate, setInvoiceDate] = useState('');
@@ -95,10 +96,10 @@ export default function InvoiceGeneratorPage() {
   
   const customersRef = useMemoFirebase(() => {
     if (!firestore) return null;
-    return collection(firestore, 'customers');
+    return collection(firestore, 'customers') as CollectionReference<DocumentData>;
   }, [firestore]);
   
-  const { data: customers, isLoading: customersLoading } = useCollection<Customer>(customersRef);
+  const { data: customers, isLoading: customersLoading } = useCollection<Omit<Customer, 'id'>>(customersRef);
 
   const form = useForm<InvoiceFormData>({
     resolver: zodResolver(invoiceSchema),
@@ -112,9 +113,9 @@ export default function InvoiceGeneratorPage() {
         grossWeight: 0,
         netWeight: 0,
         purity: "91.6",
-        rate: 5000,
-        makingChargeType: 'percentage',
-        makingChargeValue: 10,
+        rate: 0,
+        makingChargeType: 'flat',
+        makingChargeValue: 0,
         applyGst: true,
       }],
       discount: 0
@@ -134,6 +135,15 @@ export default function InvoiceGeneratorPage() {
     [customers, watchedCustomerId]
   );
   
+  useEffect(() => {
+    // This effect runs when the selected customer changes.
+    // It calls the function from the context to get the correct invoice number.
+    const isTax = !!selectedCustomer?.gstin;
+    const newNumber = generateInvoiceNumber(isTax);
+    setInvoiceNumber(newNumber);
+  }, [selectedCustomer, generateInvoiceNumber]);
+
+
   const calculateTotals = useCallback((items: Partial<ItemFormData>[], customerGstin?: string | null, discount?: number) => {
     const subtotal = items.reduce((acc, item) => acc + getItemTotal(item), 0);
     const taxableAmount = customerGstin ? items.reduce((acc, item) => {
@@ -156,7 +166,6 @@ export default function InvoiceGeneratorPage() {
   
   useEffect(() => {
     setInvoiceDate(new Date().toLocaleDateString('en-CA')); // YYYY-MM-DD format
-    setInvoiceNumber(`INV-${Date.now().toString().slice(-6)}`);
   }, []);
   
   const onSubmit = (data: InvoiceFormData) => {
@@ -206,7 +215,7 @@ export default function InvoiceGeneratorPage() {
                         id="invoiceNumber"
                         value={invoiceNumber}
                         onChange={(e) => setInvoiceNumber(e.target.value)}
-                        className="w-40 text-right"
+                        className="w-48 text-right"
                     />
                 </div>
                 <div className="flex items-center justify-end gap-2">
@@ -437,7 +446,3 @@ export default function InvoiceGeneratorPage() {
     </form>
   );
 }
-
-    
-
-    
