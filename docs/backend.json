@@ -210,6 +210,16 @@
           "type": "number",
           "description": "Monthly interest rate applicable to this invoice after the due date."
         },
+        "interestCompound": {
+          "type": "string",
+          "description": "Interest compounding frequency for this invoice.",
+          "enum": [
+            "Monthly",
+            "Quarterly",
+            "Half-Yearly",
+            "Annually"
+          ]
+        },
         "paymentMode": {
           "type": "string",
           "description": "Payment mode."
@@ -465,3 +475,5 @@
     "reasoning": "The Firestore structure is designed to reflect the relationships between entities in the jewelry business accounting software, ensuring data integrity and enabling secure and efficient data access. Key to this design is adhering to Authorization Independence (CRITICAL).  This is achieved by storing authorization data within the documents themselves, avoiding the need for complex `get()` calls in security rules.  We're employing Path-Based ownership for user-specific data and a Membership Map model where applicable for collaborative access. This approach supports secure `list` operations (QAPs) by ensuring each collection maintains a homogeneous security posture.\n\nSpecifically:\n\n*   **Users:** `/users/{userId}` utilizes path-based ownership, making security rules straightforward (only the user can access their own data).\n*   **Business Settings:** `/business_settings/{businessSettingsId}`. Access is restricted to Developers, enforced through a dedicated `/roles_developer/{userId}` collection.  The existence of a document in this collection grants access.  This approach promotes Authorization Independence as access is determined locally within the rule, not by traversing the data hierarchy.\n*   **Customers:** `/customers/{customerId}`. All authenticated users can create and manage customers, but the data resides at the root level. \n*   **Items:** `/items/{itemId}`. All authenticated users can create and manage items, but the data resides at the root level. \n*   **Invoices:** `/invoices/{invoiceId}`.  Leverages the path-based ownership pattern `/customers/{customerId}/invoices/{invoiceId}` to associate invoices with customers and simplify authorization. This is a User 1:N Entity relationship.\n*   **InvoiceItems:** `/invoices/{invoiceId}/invoice_items/{invoiceItemId}`.  Mirrors the Invoice structure, creating a nested path for invoice items. This enforces ownership and maintains the 1:N relationship between invoices and invoice items.\n*   **Payments:**  `/customers/{customerId}/payments/{paymentId}`.  Employs path-based ownership to associate payments with the correct customer.  Access control is thus simplified and efficient.\n\nThis structure ensures that security rules can be written clearly and debugged easily, while also supporting the application's data access patterns. The design intentionally avoids complex hierarchical dependencies, promoting scalability and maintainability."
   }
 }
+
+    

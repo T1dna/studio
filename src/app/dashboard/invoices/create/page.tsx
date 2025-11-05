@@ -48,6 +48,7 @@ const invoiceSchema = z.object({
   paymentMode: z.string().min(1, 'Please select a payment mode'),
   dueDate: z.string().min(1, "Due date is required"),
   interestRate: z.coerce.number().nonnegative("Interest rate must be non-negative"),
+  interestCompound: z.string().min(1, "Please select a compounding method"),
   items: z.array(itemSchema).min(1, 'Please add at least one item'),
   discount: z.coerce.number().nonnegative().optional(),
 });
@@ -112,6 +113,7 @@ export default function InvoiceGeneratorPage() {
       paymentMode: 'Cash',
       dueDate: '',
       interestRate: 0,
+      interestCompound: 'Monthly',
       items: [{
         itemName: '',
         qty: 1,
@@ -241,7 +243,7 @@ export default function InvoiceGeneratorPage() {
 
         <CardContent className="space-y-8">
           {/* Customer and Invoice Details */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 p-4 border rounded-lg">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 p-4 border rounded-lg">
             <div>
               <Label htmlFor="customerId">Customer</Label>
               <Controller
@@ -294,16 +296,37 @@ export default function InvoiceGeneratorPage() {
               />
                {errors.paymentMode && <p className="text-sm text-destructive mt-1">{errors.paymentMode.message}</p>}
             </div>
+            <div>
+                <Label htmlFor="dueDate">Due Date</Label>
+                <Input id="dueDate" type="date" {...register('dueDate')} />
+                {errors.dueDate && <p className="text-sm text-destructive mt-1">{errors.dueDate.message}</p>}
+            </div>
             <div className="grid grid-cols-2 gap-4">
-                 <div>
-                    <Label htmlFor="dueDate">Due Date</Label>
-                    <Input id="dueDate" type="date" {...register('dueDate')} />
-                    {errors.dueDate && <p className="text-sm text-destructive mt-1">{errors.dueDate.message}</p>}
-                 </div>
                  <div>
                     <Label htmlFor="interestRate">Interest Rate (%)</Label>
                     <Input id="interestRate" type="number" step="0.01" {...register('interestRate')} />
                     {errors.interestRate && <p className="text-sm text-destructive mt-1">{errors.interestRate.message}</p>}
+                 </div>
+                 <div>
+                    <Label htmlFor="interestCompound">Compounding</Label>
+                    <Controller
+                        name="interestCompound"
+                        control={control}
+                        render={({ field }) => (
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select period" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="Monthly">Monthly</SelectItem>
+                                <SelectItem value="Quarterly">Quarterly</SelectItem>
+                                <SelectItem value="Half-Yearly">Half-Yearly</SelectItem>
+                                <SelectItem value="Annually">Annually</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        )}
+                    />
+                    {errors.interestCompound && <p className="text-sm text-destructive mt-1">{errors.interestCompound.message}</p>}
                  </div>
             </div>
           </div>
