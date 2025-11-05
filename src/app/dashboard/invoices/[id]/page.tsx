@@ -10,9 +10,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 // Helper function to format currency
-const formatCurrency = (amount: number) => `₹${amount.toFixed(2)}`;
-const formatWeight = (weight: number) => weight.toFixed(3);
-const formatRate = (rate: number) => `₹${rate.toFixed(3)}`;
+const formatCurrency = (amount: number) => `₹${Number(amount || 0).toFixed(2)}`;
+const formatWeight = (weight: number) => Number(weight || 0).toFixed(3);
+const formatRate = (rate: number) => `₹${Number(rate || 0).toFixed(3)}`;
 
 
 export default function InvoiceDetailPage() {
@@ -247,5 +247,3 @@ export default function InvoiceDetailPage() {
     </div>
   );
 }
-
-    
