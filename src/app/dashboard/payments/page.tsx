@@ -166,22 +166,28 @@ export default function PaymentsHistoryPage() {
                         <TableHead>Payment Date</TableHead>
                         <TableHead>Customer</TableHead>
                         <TableHead className="text-right">Amount</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {processedPayments.length > 0 ? (
                         processedPayments.sort((a,b) => b.date.seconds - a.date.seconds).map((payment) => (
-                            <TableRow key={payment.id} onClick={() => router.push(`/dashboard/payments/${payment.customerId}`)} className="cursor-pointer">
+                            <TableRow key={payment.id} >
                                 <TableCell>
                                     {new Date(payment.date.seconds * 1000).toLocaleDateString()}
                                 </TableCell>
                                 <TableCell className="font-medium">{payment.customerName}</TableCell>
                                 <TableCell className="text-right">₹{payment.amount.toFixed(2)}</TableCell>
+                                <TableCell className="text-right">
+                                    <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/payments/${payment.customerId}`)}>
+                                        Manage
+                                    </Button>
+                                </TableCell>
                             </TableRow>
                         ))
                     ) : (
                          <TableRow>
-                            <TableCell colSpan={3} className="text-center h-24">
+                            <TableCell colSpan={4} className="text-center h-24">
                                 No payments recorded yet.
                             </TableCell>
                         </TableRow>
@@ -194,3 +200,5 @@ export default function PaymentsHistoryPage() {
     </>
   );
 }
+
+    
