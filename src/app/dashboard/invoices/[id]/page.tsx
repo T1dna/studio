@@ -6,7 +6,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useInvoices, Invoice } from '@/contexts/invoices-context';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Printer } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 // Helper function to format currency
@@ -126,6 +126,7 @@ export default function InvoiceDetailPage() {
                     <div className="text-right space-y-1">
                         <p><span className="font-semibold">Invoice #:</span> {invoice.id}</p>
                         <p><span className="font-semibold">Date:</span> {new Date(invoice.date).toLocaleDateString()}</p>
+                        {invoice.dueDate && <p><span className="font-semibold">Due Date:</span> {new Date(invoice.dueDate).toLocaleDateString()}</p>}
                     </div>
                 </div>
                 <hr className="my-4"/>

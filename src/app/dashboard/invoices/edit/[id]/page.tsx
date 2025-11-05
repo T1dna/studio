@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardFooter } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PlusCircle, Trash2, Loader2 } from 'lucide-react';
@@ -46,6 +46,8 @@ const itemSchema = z.object({
 const invoiceSchema = z.object({
   customerId: z.string().min(1, 'Please select a customer'),
   paymentMode: z.string().min(1, 'Please select a payment mode'),
+  dueDate: z.string().min(1, "Due date is required"),
+  interestRate: z.coerce.number().nonnegative("Interest rate must be non-negative"),
   items: z.array(itemSchema).min(1, 'Please add at least one item'),
   discount: z.coerce.number().nonnegative().optional(),
 });
@@ -113,6 +115,8 @@ export default function EditInvoicePage() {
     defaultValues: {
       customerId: '',
       paymentMode: 'Cash',
+      dueDate: '',
+      interestRate: 0,
       items: [],
       discount: 0
     },
@@ -132,6 +136,8 @@ export default function EditInvoicePage() {
         reset({
           customerId: existingInvoice.customer.id,
           paymentMode: existingInvoice.paymentMode,
+          dueDate: new Date(existingInvoice.dueDate).toLocaleDateString('en-CA'),
+          interestRate: existingInvoice.interestRate,
           items: existingInvoice.items,
           discount: existingInvoice.totals.discount,
         });
@@ -247,7 +253,7 @@ export default function EditInvoicePage() {
 
         <CardContent className="space-y-8">
           {/* Customer and Invoice Details */}
-          <div className="grid md:grid-cols-2 gap-6 p-4 border rounded-lg">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 p-4 border rounded-lg">
             <div>
               <Label htmlFor="customerId">Customer</Label>
               <Controller
@@ -299,6 +305,18 @@ export default function EditInvoicePage() {
                 )}
               />
                {errors.paymentMode && <p className="text-sm text-destructive mt-1">{errors.paymentMode.message}</p>}
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+                 <div>
+                    <Label htmlFor="dueDate">Due Date</Label>
+                    <Input id="dueDate" type="date" {...register('dueDate')} />
+                    {errors.dueDate && <p className="text-sm text-destructive mt-1">{errors.dueDate.message}</p>}
+                 </div>
+                 <div>
+                    <Label htmlFor="interestRate">Interest Rate (%)</Label>
+                    <Input id="interestRate" type="number" step="0.01" {...register('interestRate')} />
+                    {errors.interestRate && <p className="text-sm text-destructive mt-1">{errors.interestRate.message}</p>}
+                 </div>
             </div>
           </div>
 

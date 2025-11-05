@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "User": {
@@ -199,6 +200,15 @@
           "type": "string",
           "description": "Invoice date.",
           "format": "date-time"
+        },
+        "dueDate": {
+          "type": "string",
+          "description": "Date the invoice is due.",
+          "format": "date"
+        },
+        "interestRate": {
+          "type": "number",
+          "description": "Monthly interest rate applicable to this invoice after the due date."
         },
         "paymentMode": {
           "type": "string",
