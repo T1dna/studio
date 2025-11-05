@@ -67,13 +67,13 @@ export default function InvoiceDetailPage() {
   const isTaxInvoice = !!customer?.gstin;
   const showGrossWeightColumn = items.some((item: any) => item.grossWeight && parseFloat(item.grossWeight) > 0);
   const showHsnColumn = isTaxInvoice && items.some((item: any) => item.hsn);
-  const cgst = totals.gst / 2;
-  const sgst = totals.gst / 2;
+  const cgst = Number(totals.gst) / 2;
+  const sgst = Number(totals.gst) / 2;
 
   const getItemTotal = (item: any): number => {
     const rate = Number(item.rate) || 0;
     const netWeight = Number(item.netWeight) || 0;
-    const qty = Number(item.qty) || 0;
+    const qty = Number(item.qty) || 1;
     const makingChargeValue = Number(item.makingChargeValue) || 0;
     const makingChargeType = item.makingChargeType;
 
@@ -114,14 +114,14 @@ export default function InvoiceDetailPage() {
         <Card className="w-full max-w-4xl mx-auto print:shadow-none print:border-none">
             <CardHeader>
                 <div className="text-center mb-4">
-                    <h1 className="text-lg font-bold">{isTaxInvoice ? 'TAX Invoice' : 'Cash Memo'}</h1>
+                    <h1 className="text-base font-bold">{isTaxInvoice ? 'TAX Invoice' : 'Cash Memo'}</h1>
                 </div>
                 <div className="flex justify-between items-start">
                     <div>
-                        <p className="font-bold text-2xl">{businessDetails.name}</p>
-                        <p className="text-lg">{businessDetails.address}</p>
-                        <p className="text-lg">Phone: {businessDetails.phone}</p>
-                        {isTaxInvoice && businessDetails.gstin && <p className="text-lg">GSTIN / PAN: {businessDetails.gstin}</p>}
+                        <p className="font-bold text-3xl">{businessDetails.name}</p>
+                        <p className="text-xl">{businessDetails.address}</p>
+                        <p className="text-xl">Phone: {businessDetails.phone}</p>
+                        {isTaxInvoice && businessDetails.gstin && <p className="text-xl">GSTIN / PAN: {businessDetails.gstin}</p>}
                     </div>
                     <div className="text-right space-y-1">
                         <p><span className="font-semibold">Invoice #:</span> {invoice.id}</p>
@@ -206,12 +206,14 @@ export default function InvoiceDetailPage() {
                 <div className="w-full max-w-xs space-y-2">
                     <div className="flex justify-between">
                         <span>Subtotal:</span>
-                        <span>{formatCurrency(totals.subtotal)}</span>
+                        <span>{formatCurrency(Number(totals.subtotal))}</span>
                     </div>
-                     <div className="flex justify-between">
-                        <span>Discount:</span>
-                        <span>- {formatCurrency(totals.discount)}</span>
-                    </div>
+                     {totals.discount > 0 && (
+                        <div className="flex justify-between">
+                            <span>Discount:</span>
+                            <span>- {formatCurrency(Number(totals.discount))}</span>
+                        </div>
+                     )}
                     {isTaxInvoice && (
                         <>
                         <div className="flex justify-between">
@@ -227,7 +229,7 @@ export default function InvoiceDetailPage() {
                     <hr className="my-2"/>
                     <div className="flex justify-between text-lg font-bold">
                         <span>Total:</span>
-                        <span>{formatCurrency(totals.total)}</span>
+                        <span>{formatCurrency(Number(totals.total))}</span>
                     </div>
                 </div>
 
