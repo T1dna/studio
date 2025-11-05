@@ -123,7 +123,7 @@ export default function CustomerPaymentsPage() {
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [paymentToDelete, setPaymentToDelete] = useState<string | null>(null);
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
-  const [allocations, setAllocations] = useState<{[invoiceId: string]: { principal: number, interest: number } }>({});
+  const [allocations, setAllocations] = useState<{[invoiceId: string]: { principal: string, interest: string } }>({});
 
   
   const customersRef = useMemoFirebase(() => {
@@ -170,7 +170,11 @@ export default function CustomerPaymentsPage() {
   }, [calculatedInvoices]);
 
   const unallocatedAmount = useMemo(() => {
-    const totalAllocated = Object.values(allocations).reduce((sum, alloc) => sum + (alloc.principal || 0) + (alloc.interest || 0), 0);
+    const totalAllocated = Object.values(allocations).reduce((sum, alloc) => {
+      const principal = parseFloat(alloc.principal) || 0;
+      const interest = parseFloat(alloc.interest) || 0;
+      return sum + principal + interest;
+    }, 0);
     return paymentAmount - totalAllocated;
   }, [paymentAmount, allocations]);
 
@@ -191,14 +195,31 @@ export default function CustomerPaymentsPage() {
   const handleOpenEditDialog = (payment: Payment) => {
     setEditingPayment(payment);
     setPaymentAmount(payment.amount);
-    setAllocations(payment.allocations);
+    const stringAllocations = Object.entries(payment.allocations).reduce((acc, [key, value]) => {
+      acc[key] = {
+        principal: value.principal.toString(),
+        interest: value.interest.toString(),
+      };
+      return acc;
+    }, {} as {[invoiceId: string]: { principal: string, interest: string } });
+    setAllocations(stringAllocations);
     setIsPaymentDialogOpen(true);
   }
 
   const handleRecordPayment = async () => {
     if (!firestore || !customerId) return;
     
-    const totalAllocated = Object.values(allocations).reduce((sum, alloc) => sum + alloc.principal + alloc.interest, 0);
+    const numericAllocations = Object.entries(allocations).reduce((acc, [id, values]) => {
+        const principal = parseFloat(values.principal) || 0;
+        const interest = parseFloat(values.interest) || 0;
+        if (principal > 0 || interest > 0) {
+            acc[id] = { principal, interest };
+        }
+        return acc;
+    }, {} as {[invoiceId: string]: { principal: number, interest: number } });
+
+    const totalAllocated = Object.values(numericAllocations).reduce((sum, alloc) => sum + alloc.principal + alloc.interest, 0);
+
     if (totalAllocated <= 0) {
         toast({ variant: 'destructive', title: "No allocation", description: "Please allocate the payment amount."});
         return;
@@ -209,24 +230,19 @@ export default function CustomerPaymentsPage() {
         return;
     }
     
-    const finalAllocations = Object.entries(allocations).reduce((acc, [id, values]) => {
-        if(values.principal > 0 || values.interest > 0) { acc[id] = values; }
-        return acc;
-    }, {} as {[invoiceId: string]: { principal: number, interest: number } });
-    
     try {
         if (editingPayment) {
             const paymentDocRef = doc(firestore, 'customers', customerId, 'payments', editingPayment.id);
             await updateDoc(paymentDocRef, {
                 amount: paymentAmount,
-                allocations: finalAllocations,
+                allocations: numericAllocations,
             });
             toast({ title: "Payment Updated", description: "The payment has been successfully updated."});
         } else {
              await addDoc(collection(firestore, 'customers', customerId, 'payments'), {
                 date: serverTimestamp(),
                 amount: paymentAmount,
-                allocations: finalAllocations,
+                allocations: numericAllocations,
             });
             toast({ title: "Payment Recorded", description: "The payment has been successfully recorded."});
         }
@@ -249,7 +265,7 @@ export default function CustomerPaymentsPage() {
     }
   }
 
-  const handleAllocationChange = (invoiceId: string, type: 'principal' | 'interest', value: number) => {
+  const handleAllocationChange = (invoiceId: string, type: 'principal' | 'interest', value: string) => {
     const invoice = calculatedInvoices.find(inv => inv.id === invoiceId);
     if (!invoice) return;
 
@@ -257,14 +273,24 @@ export default function CustomerPaymentsPage() {
     if (editingPayment && editingPayment.allocations[invoiceId]) {
         maxVal += editingPayment.allocations[invoiceId][type] || 0;
     }
-
-    const clampedValue = Math.max(0, Math.min(value, maxVal));
     
+    const numericValue = parseFloat(value) || 0;
+    const clampedValue = Math.max(0, Math.min(numericValue, maxVal));
+    const finalValue = value === '' ? '' : String(clampedValue);
+
+    if (numericValue > maxVal) {
+      toast({
+          variant: 'destructive',
+          title: 'Allocation Exceeded',
+          description: `Cannot allocate more than the due amount of ₹${maxVal.toFixed(2)}.`
+      });
+    }
+
     setAllocations(prev => ({
         ...prev,
         [invoiceId]: {
-            ...(prev[invoiceId] || { principal: 0, interest: 0 }),
-            [type]: clampedValue
+            ...(prev[invoiceId] || { principal: '', interest: '' }),
+            [type]: finalValue
         }
     }));
   };
@@ -337,7 +363,7 @@ export default function CustomerPaymentsPage() {
                             />
                         </div>
                         <div className={`p-2 rounded-md text-sm font-medium ${unallocatedAmount < -0.01 ? 'bg-destructive/20 text-destructive' : 'bg-muted'}`}>
-                           {unallocatedAmount > 0.01 ? `Unallocated: ₹${unallocatedAmount.toFixed(2)}` : 'Fully Allocated'}
+                           {unallocatedAmount.toFixed(2) !== '0.00' ? `Unallocated: ₹${unallocatedAmount.toFixed(2)}` : 'Fully Allocated'}
                         </div>
                     </div>
 
@@ -363,21 +389,17 @@ export default function CustomerPaymentsPage() {
                                         <TableCell>₹{invoice.interestDue.toFixed(2)}</TableCell>
                                         <TableCell>
                                             <Input
-                                                type="number"
+                                                type="text"
                                                 value={allocations[invoice.id]?.principal || ''}
-                                                onChange={(e) => handleAllocationChange(invoice.id, 'principal', parseFloat(e.target.value))}
-                                                max={invoice.principalDue + (editingPayment?.allocations[invoice.id]?.principal || 0)}
-                                                min={0}
+                                                onChange={(e) => handleAllocationChange(invoice.id, 'principal', e.target.value)}
                                                 placeholder="0.00"
                                             />
                                         </TableCell>
                                         <TableCell>
                                             <Input
-                                                type="number"
+                                                type="text"
                                                 value={allocations[invoice.id]?.interest || ''}
-                                                onChange={(e) => handleAllocationChange(invoice.id, 'interest', parseFloat(e.target.value))}
-                                                max={invoice.interestDue + (editingPayment?.allocations[invoice.id]?.interest || 0)}
-                                                min={0}
+                                                onChange={(e) => handleAllocationChange(invoice.id, 'interest', e.target.value)}
                                                 placeholder="0.00"
                                             />
                                         </TableCell>
@@ -529,3 +551,5 @@ export default function CustomerPaymentsPage() {
    </>
   );
 }
+
+    
