@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PlusCircle, Search, MoreHorizontal, FileText, Printer, Trash2, Undo, Edit } from "lucide-react";
+import { PlusCircle, Search, MoreHorizontal, FileText, Printer, Trash2, Undo, Edit, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -50,7 +50,7 @@ const getStatusVariant = (status: Invoice['status']): "default" | "secondary" | 
 }
 
 export default function InvoicesPage() {
-  const { invoices, deleteInvoice, recoverInvoice } = useInvoices();
+  const { invoices, deleteInvoice, recoverInvoice, loading: invoicesLoading } = useInvoices();
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [showDeleted, setShowDeleted] = useState(false);
@@ -143,6 +143,11 @@ export default function InvoicesPage() {
         </div>
       </CardHeader>
       <CardContent>
+       {invoicesLoading ? (
+            <div className="flex justify-center items-center h-48">
+                <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+        ) : (
         <Table>
           <TableHeader>
             <TableRow>
@@ -216,6 +221,7 @@ export default function InvoicesPage() {
             )}
           </TableBody>
         </Table>
+        )}
       </CardContent>
     </Card>
 

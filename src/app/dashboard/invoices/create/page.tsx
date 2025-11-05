@@ -173,18 +173,20 @@ export default function InvoiceGeneratorPage() {
   const sgst = gst / 2;
   
   useEffect(() => {
-    setInvoiceDate(new Date().toLocaleDateString('en-CA')); // YYYY-MM-DD format
-    form.setValue('dueDate', new Date().toLocaleDateString('en-CA'));
+    const today = new Date();
+    setInvoiceDate(today.toLocaleDateString('en-CA')); // YYYY-MM-DD format
+    form.setValue('dueDate', today.toLocaleDateString('en-CA'));
   }, [form]);
   
   const onSubmit = (data: InvoiceFormData) => {
     const newInvoice = {
         id: invoiceNumber,
         customerName: selectedCustomer?.name || 'N/A',
-        date: invoiceDate,
+        date: new Date(invoiceDate).toISOString(),
         amount: total,
         status: 'Pending' as 'Paid' | 'Pending' | 'Overdue',
         ...data,
+        dueDate: new Date(data.dueDate).toISOString(),
         customer: selectedCustomer,
         business: businessDetails,
         totals: {
@@ -201,7 +203,7 @@ export default function InvoiceGeneratorPage() {
       description: `Invoice ${invoiceNumber} has been successfully created.`,
     });
     
-    router.push(`/dashboard/invoices/${invoiceNumber}`);
+    router.push(`/dashboard/invoices/${invoiceNumber}?print=true`);
   };
   
 
@@ -488,5 +490,3 @@ export default function InvoiceGeneratorPage() {
     </form>
   );
 }
-
-    

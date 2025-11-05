@@ -183,13 +183,14 @@ export default function EditInvoicePage() {
   
   const onSubmit = (data: InvoiceFormData) => {
     if (!id) return;
-    const updatedInvoice = {
+    const updatedInvoiceData = {
         ...invoice,
         ...data,
         id: invoiceNumber,
-        date: invoiceDate,
-        customerName: selectedCustomer?.name || 'N/A',
+        date: new Date(invoiceDate).toISOString(),
         amount: total,
+        customerName: selectedCustomer?.name || 'N/A',
+        dueDate: new Date(data.dueDate).toISOString(),
         customer: selectedCustomer,
         business: businessDetails,
         totals: {
@@ -199,7 +200,7 @@ export default function EditInvoicePage() {
             total,
         }
     };
-    updateInvoice(id, updatedInvoice);
+    updateInvoice(id, updatedInvoiceData);
 
     toast({
       title: "Invoice Updated!",
@@ -236,8 +237,8 @@ export default function EditInvoicePage() {
                     <Input 
                         id="invoiceNumber"
                         value={invoiceNumber}
-                        onChange={(e) => setInvoiceNumber(e.target.value)}
-                        className="w-40 text-right"
+                        readOnly
+                        className="w-40 text-right bg-muted"
                     />
                 </div>
                 <div className="flex items-center justify-end gap-2">
@@ -263,20 +264,14 @@ export default function EditInvoicePage() {
                 name="customerId"
                 control={control}
                 render={({ field }) => (
-                  <Select onValueChange={field.onChange} value={field.value} disabled={customersLoading}>
+                  <Select onValueChange={field.onChange} value={field.value} disabled>
                     <SelectTrigger>
-                      <SelectValue placeholder={customersLoading ? "Loading customers..." : "Select a customer"} />
+                      <SelectValue placeholder={"Select a customer"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {customersLoading ? (
-                        <div className="flex items-center justify-center p-4">
-                            <Loader2 className="h-5 w-5 animate-spin" />
-                        </div>
-                      ) : (
-                        customers?.map(c => (
-                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                        ))
-                      )}
+                      {customers?.map(c => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 )}
@@ -501,5 +496,3 @@ export default function EditInvoicePage() {
     </form>
   );
 }
-
-    

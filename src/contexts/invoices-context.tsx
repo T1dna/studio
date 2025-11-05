@@ -1,7 +1,11 @@
 
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
+import { useCollection, useFirestore, useMemoFirebase, useDoc } from '@/firebase';
+import { collection, doc, setDoc, updateDoc, collectionGroup, Query, DocumentData } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
+import { setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 export interface BusinessDetails {
   name: string;
@@ -44,75 +48,42 @@ interface InvoicesContextType {
 const InvoicesContext = createContext<InvoicesContextType | undefined>(undefined);
 
 
-const mockInvoices: Invoice[] = [
-  { 
-    id: 'INV-240700001', customerName: 'Rohan Sharma', date: '2024-07-15', amount: 25750, status: 'Paid',
-    items: [{ itemName: 'Gold Ring', qty: 1, netWeight: 5, rate: 24000, makingChargeType: 'flat', makingChargeValue: 1000, applyGst: true }],
-    totals: { subtotal: 25000, discount: 0, gst: 750, total: 25750 },
-    customer: { id: 'CUST-001', name: 'Rohan Sharma', address: '123 Diamond Street, Jaipur', gstin: '08AAAAA0000A1Z5' },
-    paymentMode: 'Cash'
-  },
-  { 
-    id: 'CSH-240700001', customerName: 'Priya Patel', date: '2024-07-12', amount: 15000, status: 'Pending',
-    items: [{ itemName: 'Silver Chain', qty: 1, netWeight: 50, rate: 15000, makingChargeType: 'percentage', makingChargeValue: 0, applyGst: false }],
-    totals: { subtotal: 15000, discount: 0, gst: 0, total: 15000 },
-    customer: { id: 'CUST-002', name: 'Priya Patel', address: '456 Ruby Lane, Mumbai', gstin: '' },
-    paymentMode: 'Online'
-  },
-];
-
-
 export function InvoicesProvider({ children }: { children: ReactNode }) {
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [businessDetails, setBusinessDetails] = useState<BusinessDetails>(defaultBusinessDetails);
-  const [loading, setLoading] = useState(true);
+  const firestore = useFirestore();
+  const { toast } = useToast();
 
-  useEffect(() => {
-    try {
-      // Load business details
-      const storedBusinessDetailsRaw = localStorage.getItem('gems-business-details');
-      const storedBusinessDetails = storedBusinessDetailsRaw ? JSON.parse(storedBusinessDetailsRaw) : null;
-      if (storedBusinessDetails) {
-        setBusinessDetails(storedBusinessDetails);
-      } else {
-        localStorage.setItem('gems-business-details', JSON.stringify(defaultBusinessDetails));
-      }
-      
-      // Load invoices
-      const storedInvoicesRaw = localStorage.getItem('gems-invoices');
-      let storedInvoices = storedInvoicesRaw ? JSON.parse(storedInvoicesRaw) : null;
-      
-      const finalBusinessDetails = storedBusinessDetails || defaultBusinessDetails;
+  // Fetch Business Details from Firestore
+  const businessSettingsRef = useMemoFirebase(() => {
+      if (!firestore) return null;
+      // There's only one settings doc, with a known ID.
+      return doc(firestore, 'business_settings', 'shop_details');
+  }, [firestore]);
+  
+  const { data: businessDetailsData, isLoading: businessLoading } = useDoc<BusinessDetails>(businessSettingsRef);
+  const businessDetails = businessDetailsData || defaultBusinessDetails;
+  
+  
+  // Fetch All Invoices using a Collection Group query
+   const invoicesQuery = useMemoFirebase(() => {
+    if(!firestore) return null;
+    return collectionGroup(firestore, 'invoices') as Query<DocumentData>;
+   }, [firestore]);
 
-      if (storedInvoices) {
-        // Data repair: Ensure all invoices have necessary data
-        const repairedInvoices = storedInvoices.map((inv: Invoice) => ({
-          ...inv,
-          isDeleted: inv.isDeleted || false,
-          business: inv.business || finalBusinessDetails,
-          customer: inv.customer || { name: inv.customerName || 'N/A', address: ''},
-          items: Array.isArray(inv.items) ? inv.items : [],
-          totals: inv.totals || { subtotal: inv.amount || 0, discount: 0, gst: 0, total: inv.amount || 0 },
-        }));
-        setInvoices(repairedInvoices);
-        localStorage.setItem('gems-invoices', JSON.stringify(repairedInvoices));
-      } else {
-        // If no invoices in storage, start with mock data and add business details
-        const initialInvoices = mockInvoices.map(inv => ({...inv, business: finalBusinessDetails, isDeleted: false}));
-        setInvoices(initialInvoices);
-        localStorage.setItem('gems-invoices', JSON.stringify(initialInvoices));
-      }
-    } catch (error) {
-      console.error("Failed to parse data from localStorage", error);
-      // Fallback to mock data if storage is corrupt
-      const initialInvoices = mockInvoices.map(inv => ({...inv, business: defaultBusinessDetails, isDeleted: false}));
-      setInvoices(initialInvoices);
-      localStorage.setItem('gems-invoices', JSON.stringify(initialInvoices));
-      localStorage.setItem('gems-business-details', JSON.stringify(defaultBusinessDetails));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+   const { data: rawInvoices, isLoading: invoicesLoading, error } = useCollection<Invoice>(invoicesQuery);
+
+   const invoices = useMemo(() => {
+       if (!rawInvoices) return [];
+       return rawInvoices.map(inv => {
+           // The path of a subcollection doc is customers/{id}/invoices/{invoiceId}
+          const pathParts = (inv as any).ref?.path.split('/');
+          const customerId = pathParts ? pathParts[1] : 'unknown';
+          return {
+            ...inv,
+            customerId: customerId,
+        }
+       });
+   }, [rawInvoices]);
+
 
   const generateInvoiceNumber = useCallback((isTaxInvoice: boolean): string => {
     const prefix = isTaxInvoice ? 'INV' : 'CSH';
@@ -142,31 +113,37 @@ export function InvoicesProvider({ children }: { children: ReactNode }) {
 
 
   const addInvoice = (invoice: Invoice) => {
-    const updatedInvoices = [...invoices, { ...invoice, isDeleted: false }];
-    setInvoices(updatedInvoices);
-    localStorage.setItem('gems-invoices', JSON.stringify(updatedInvoices));
+    if (!firestore || !invoice.customer?.id) {
+        toast({variant: 'destructive', title: 'Error', description: 'Could not save invoice. Customer ID is missing.'});
+        return;
+    }
+    const invoiceRef = doc(firestore, 'customers', invoice.customer.id, 'invoices', invoice.id);
+    // Using non-blocking update for instant UI feedback
+    setDocumentNonBlocking(invoiceRef, { ...invoice, isDeleted: false }, {merge: false});
   };
   
   const updateInvoice = (id: string, invoice: Invoice) => {
-    const updatedInvoices = invoices.map(i => i.id === id ? invoice : i);
-    setInvoices(updatedInvoices);
-    localStorage.setItem('gems-invoices', JSON.stringify(updatedInvoices));
+    if (!firestore || !invoice.customer?.id) {
+        toast({variant: 'destructive', title: 'Error', description: 'Could not update invoice. Customer ID is missing.'});
+        return;
+    }
+    const invoiceRef = doc(firestore, 'customers', invoice.customer.id, 'invoices', id);
+    // Using non-blocking update for instant UI feedback
+    setDocumentNonBlocking(invoiceRef, invoice, { merge: true });
   };
 
   const deleteInvoice = (id: string) => {
-    const updatedInvoices = invoices.map(invoice => 
-        invoice.id === id ? { ...invoice, isDeleted: true } : invoice
-    );
-    setInvoices(updatedInvoices);
-    localStorage.setItem('gems-invoices', JSON.stringify(updatedInvoices));
+    const invoice = invoices.find(inv => inv.id === id);
+    if (!firestore || !invoice || !invoice.customerId) return;
+    const invoiceRef = doc(firestore, 'customers', invoice.customerId, 'invoices', id);
+    updateDocumentNonBlocking(invoiceRef, { isDeleted: true });
   };
 
   const recoverInvoice = (id: string) => {
-    const updatedInvoices = invoices.map(invoice =>
-        invoice.id === id ? { ...invoice, isDeleted: false } : invoice
-    );
-    setInvoices(updatedInvoices);
-    localStorage.setItem('gems-invoices', JSON.stringify(updatedInvoices));
+    const invoice = invoices.find(inv => inv.id === id);
+    if (!firestore || !invoice || !invoice.customerId) return;
+    const invoiceRef = doc(firestore, 'customers', invoice.customerId, 'invoices', id);
+    updateDocumentNonBlocking(invoiceRef, { isDeleted: false });
   };
 
   const getInvoice = (id: string): Invoice | undefined => {
@@ -174,12 +151,13 @@ export function InvoicesProvider({ children }: { children: ReactNode }) {
   }
   
   const updateBusinessDetails = useCallback((details: BusinessDetails) => {
-      setBusinessDetails(details);
-      localStorage.setItem('gems-business-details', JSON.stringify(details));
-  }, []);
+      if (!businessSettingsRef) return;
+      // Non-blocking update for UI responsiveness
+      updateDocumentNonBlocking(businessSettingsRef, details);
+  }, [businessSettingsRef]);
 
   return (
-    <InvoicesContext.Provider value={{ invoices, addInvoice, updateInvoice, deleteInvoice, recoverInvoice, getInvoice, generateInvoiceNumber, loading, businessDetails, updateBusinessDetails }}>
+    <InvoicesContext.Provider value={{ invoices, addInvoice, updateInvoice, deleteInvoice, recoverInvoice, getInvoice, generateInvoiceNumber, loading: invoicesLoading || businessLoading, businessDetails, updateBusinessDetails }}>
       {children}
     </InvoicesContext.Provider>
   );
