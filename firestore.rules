@@ -109,14 +109,24 @@ service cloud.firestore {
     /**
      * @description Allows developers to create, read, update, and delete documents in the /roles_developer collection.
      * @path /roles_developer/{userId}
-     * @allow (get, list, create, update, delete) - User 'dev_user' (auth.uid: 'dev_user') with a document in /roles_developer can access developer roles data.
+     * @allow (get, create, update, delete) - User 'dev_user' (auth.uid: 'dev_user') with a document in /roles_developer can access developer roles data.
      * @principle Restricts modification of developer roles to only those users.
      */
     match /roles_developer/{userId} {
-      allow get, create, update, delete: if isOwner(userId) && request.auth.token.email.endsWith('@test.com');
+      allow get, create, update, delete: if isOwner(userId) && isDeveloper();
       allow list: if isDeveloper();
     }
     
+    /**
+     * @description Allows any authenticated user to query the 'invoices' collection group.
+     * @path /{path=**}/invoices/{invoiceId}
+     * @allow (list) - Any authenticated user can list invoices across all customers.
+     * @principle Enables the global invoice list view.
+     */
+    match /{path=**}/invoices/{invoiceId} {
+      allow list: if isSignedIn();
+    }
+
     /**
      * @description Allows any authenticated user to query the 'payments' collection group.
      * @path /{path=**}/payments/{paymentId}
