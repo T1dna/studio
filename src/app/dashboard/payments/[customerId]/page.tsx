@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2, PlusCircle, Trash2, Edit, MoreHorizontal } from 'lucide-react';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, doc, CollectionReference, DocumentData, addDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter as DialogFooterComponent, DialogTrigger } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -127,10 +127,10 @@ export default function CustomerPaymentsPage() {
   const [allocations, setAllocations] = useState<{[invoiceId: string]: { principal: string, interest: string } }>({});
 
   
-  const customersRef = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return collection(firestore, 'customers') as CollectionReference<DocumentData>;
-  }, [firestore]);
+  const customerRef = useMemoFirebase(() => {
+    if (!firestore || !customerId) return null;
+    return doc(firestore, 'customers', customerId) as DocumentReference<DocumentData>;
+  }, [firestore, customerId]);
   
   const paymentsRef = useMemoFirebase(() => {
     if (!firestore || !customerId) return null;
@@ -138,15 +138,13 @@ export default function CustomerPaymentsPage() {
   }, [firestore, customerId]);
 
 
-  const { data: customers, isLoading: customersLoading } = useCollection<Omit<Customer, 'id'>>(customersRef);
+  const { data: customer, isLoading: customersLoading } = useDoc<Omit<Customer, 'id'>>(customerRef);
   const { data: payments, isLoading: paymentsLoading } = useCollection<Omit<Payment, 'id'>>(paymentsRef);
 
-  const customer = customers?.find(c => c.id === customerId);
-
   const calculatedInvoices = useMemo((): CalculatedInvoice[] => {
-    if (!payments || !invoices) return [];
+    if (!payments || !invoices || !customer) return [];
     
-    const customerInvoices = invoices.filter(inv => inv.customer?.id === customerId && !inv.isDeleted);
+    const customerInvoices = invoices.filter(inv => inv.customerId === customer.id && !inv.isDeleted);
     
     return customerInvoices.map(inv => {
         const { principalPaid, interestDue } = calculateInterest(inv, payments);
@@ -159,7 +157,7 @@ export default function CustomerPaymentsPage() {
             totalDue: parseFloat(totalDue.toFixed(2)),
         }
     }).filter(inv => inv.totalDue > 0.01 || (editingPayment && editingPayment.allocations[inv.id])); // Also show invoices related to editing payment
-  }, [invoices, payments, customerId, editingPayment]);
+  }, [invoices, payments, customer, editingPayment]);
   
   const totals = useMemo(() => {
     return calculatedInvoices.reduce((acc, inv) => {

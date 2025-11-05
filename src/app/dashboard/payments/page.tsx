@@ -73,9 +73,11 @@ export default function PaymentsHistoryPage() {
       if (!payments) return [];
       
       const paymentsWithDetails = payments.map(p => {
-          // The path of a subcollection doc is customers/{id}/payments/{paymentId}
-          const pathParts = (p as any).ref?.path.split('/');
-          const customerId = pathParts ? pathParts[1] : 'unknown';
+          // The ref is part of the raw doc data from useCollection and gives us the path.
+          const ref = (p as any).ref;
+          // The path of a subcollection doc is customers/{customerId}/payments/{paymentId}
+          const customerId = ref?.parent?.parent?.id || 'unknown';
+          
           return {
             ...p,
             customerId: customerId,
@@ -171,10 +173,10 @@ export default function PaymentsHistoryPage() {
                 </TableHeader>
                 <TableBody>
                     {processedPayments.length > 0 ? (
-                        processedPayments.sort((a,b) => b.date.seconds - a.date.seconds).map((payment) => (
+                        processedPayments.sort((a,b) => (b.date?.seconds ?? 0) - (a.date?.seconds ?? 0)).map((payment) => (
                             <TableRow key={payment.id} >
                                 <TableCell>
-                                    {new Date(payment.date.seconds * 1000).toLocaleDateString()}
+                                    {payment.date ? new Date(payment.date.seconds * 1000).toLocaleDateString() : 'Pending...'}
                                 </TableCell>
                                 <TableCell className="font-medium">{payment.customerName}</TableCell>
                                 <TableCell className="text-right">₹{payment.amount.toFixed(2)}</TableCell>
@@ -200,5 +202,3 @@ export default function PaymentsHistoryPage() {
     </>
   );
 }
-
-    

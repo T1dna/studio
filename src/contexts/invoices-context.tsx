@@ -25,6 +25,7 @@ const defaultBusinessDetails: BusinessDetails = {
 export interface Invoice {
   id: string;
   customerName: string;
+  customerId: string;
   date: string;
   amount: number;
   status: 'Paid' | 'Pending' | 'Overdue';
@@ -74,10 +75,11 @@ export function InvoicesProvider({ children }: { children: ReactNode }) {
    const invoices = useMemo(() => {
        if (!rawInvoices) return [];
        return rawInvoices.map(inv => {
-           // The path of a subcollection doc is customers/{id}/invoices/{invoiceId}
-          const pathParts = (inv as any).ref?.path.split('/');
-          const customerId = pathParts ? pathParts[1] : 'unknown';
-          return {
+           // The ref is part of the raw doc data from useCollection and gives us the path.
+           const ref = (inv as any).ref;
+           // The path of a subcollection doc is customers/{customerId}/invoices/{invoiceId}
+           const customerId = ref?.parent?.parent?.id || 'unknown';
+           return {
             ...inv,
             customerId: customerId,
         }
