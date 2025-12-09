@@ -190,7 +190,7 @@ export default function PaymentsHistoryPage() {
                                     <TableCell className="text-right">
                                         {payment.isCustomerDeleted ? (
                                             <Tooltip>
-                                                <TooltipTrigger>
+                                                <TooltipTrigger asChild>
                                                     <Button variant="outline" size="sm" disabled>
                                                         Manage
                                                     </Button>
