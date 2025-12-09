@@ -86,7 +86,7 @@ export default function PaymentsHistoryPage() {
           customerName: customerName || 'Unknown Customer',
           isCustomerDeleted: !customerName,
         }
-    });
+    }).filter(p => !p.isCustomerDeleted); // Filter out payments for deleted customers
     
     // Sort before filtering for consistent order
     const sorted = paymentsWithDetails.sort((a,b) => (b.date?.seconds ?? 0) - (a.date?.seconds ?? 0));
