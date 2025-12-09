@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useMemo, useEffect, Fragment } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useInvoices, Invoice } from '@/contexts/invoices-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -123,10 +123,11 @@ export default function CustomerPaymentsPage() {
   const [paymentAmount, setPaymentAmount] = useState<string>("0");
   const [allocations, setAllocations] = useState<{[invoiceId: string]: { principal: string, interest: string } }>({});
 
-  const customerRef = useMemoFirebase(() => {
-      if (!firestore || !customerId) return null;
-      return doc(firestore, 'customers', customerId) as DocumentReference<DocumentData>;
+   const customerRef = useMemoFirebase(() => {
+    if (!firestore || !customerId) return null;
+    return doc(firestore, 'customers', customerId) as DocumentReference<DocumentData>;
   }, [firestore, customerId]);
+
   const { data: customer, isLoading: customerLoading } = useDoc<Customer>(customerRef);
   
   const paymentsRef = useMemoFirebase(() => {
@@ -331,7 +332,7 @@ export default function CustomerPaymentsPage() {
   }
 
   return (
-    <Fragment>
+    <>
       <div className="space-y-6">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -555,6 +556,8 @@ export default function CustomerPaymentsPage() {
               </AlertDialogFooter>
           </AlertDialogContent>
       </AlertDialog>
-    </Fragment>
+    </>
   );
 }
+
+    

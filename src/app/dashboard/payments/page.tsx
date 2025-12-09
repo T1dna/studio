@@ -20,6 +20,7 @@ import { collection, collectionGroup, CollectionReference, DocumentData, Query }
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 type Customer = {
   id: string;
@@ -40,6 +41,7 @@ type Payment = {
     amount: number;
     customerName?: string;
     customerId: string;
+    isCustomerDeleted?: boolean;
 }
 
 export default function PaymentsHistoryPage() {
@@ -76,11 +78,13 @@ export default function PaymentsHistoryPage() {
         const ref = (p as any).ref;
         // The path of a subcollection doc is customers/{customerId}/payments/{paymentId}
         const customerId = ref?.parent?.parent?.id || 'unknown';
+        const customerName = customerMap.get(customerId);
         
         return {
           ...p,
           customerId: customerId,
-          customerName: customerMap.get(customerId) || 'Unknown Customer',
+          customerName: customerName || 'Unknown Customer',
+          isCustomerDeleted: !customerName,
         }
     });
     
@@ -164,40 +168,55 @@ export default function PaymentsHistoryPage() {
             <p className="ml-2">Loading Payments...</p>
           </div>
         ) : (
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Payment Date</TableHead>
-                        <TableHead>Customer</TableHead>
-                        <TableHead className="text-right">Amount</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {processedPayments.length > 0 ? (
-                        processedPayments.map((payment) => (
-                            <TableRow key={payment.id} >
-                                <TableCell>
-                                    {payment.date ? new Date(payment.date.seconds * 1000).toLocaleDateString() : 'Pending...'}
-                                </TableCell>
-                                <TableCell className="font-medium">{payment.customerName}</TableCell>
-                                <TableCell className="text-right">₹{payment.amount.toFixed(2)}</TableCell>
-                                <TableCell className="text-right">
-                                    <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/payments/${payment.customerId}`)}>
-                                        Manage
-                                    </Button>
+            <TooltipProvider>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Payment Date</TableHead>
+                            <TableHead>Customer</TableHead>
+                            <TableHead className="text-right">Amount</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {processedPayments.length > 0 ? (
+                            processedPayments.map((payment) => (
+                                <TableRow key={payment.id} className={payment.isCustomerDeleted ? 'opacity-50' : ''}>
+                                    <TableCell>
+                                        {payment.date ? new Date(payment.date.seconds * 1000).toLocaleDateString() : 'Pending...'}
+                                    </TableCell>
+                                    <TableCell className="font-medium">{payment.customerName}</TableCell>
+                                    <TableCell className="text-right">₹{payment.amount.toFixed(2)}</TableCell>
+                                    <TableCell className="text-right">
+                                        {payment.isCustomerDeleted ? (
+                                            <Tooltip>
+                                                <TooltipTrigger>
+                                                    <Button variant="outline" size="sm" disabled>
+                                                        Manage
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    <p>Cannot manage payments for a deleted customer.</p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        ) : (
+                                            <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/payments/${payment.customerId}`)}>
+                                                Manage
+                                            </Button>
+                                        )}
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        ) : (
+                             <TableRow>
+                                <TableCell colSpan={4} className="text-center h-24">
+                                    No payments recorded yet.
                                 </TableCell>
                             </TableRow>
-                        ))
-                    ) : (
-                         <TableRow>
-                            <TableCell colSpan={4} className="text-center h-24">
-                                No payments recorded yet.
-                            </TableCell>
-                        </TableRow>
-                    )}
-                </TableBody>
-            </Table>
+                        )}
+                    </TableBody>
+                </Table>
+            </TooltipProvider>
         )}
       </CardContent>
     </Card>
