@@ -69,28 +69,33 @@ export default function PaymentsHistoryPage() {
   }, [customers]);
 
   const processedPayments = useMemo(() => {
-      if (!payments) return [];
-      
-      const paymentsWithDetails = payments.map(p => {
-          const ref = (p as any).ref;
-          const customerId = ref?.parent?.parent?.id || 'unknown';
-          
-          return {
-            ...p,
-            customerId: customerId,
-            customerName: customerMap.get(customerId) || 'Unknown Customer',
-          }
-      });
-      
-      if (!searchTerm) return paymentsWithDetails.sort((a,b) => (b.date?.seconds ?? 0) - (a.date?.seconds ?? 0));
+    if (!payments) return [];
+    
+    const paymentsWithDetails = payments.map(p => {
+        // The ref is part of the raw doc data from useCollection and gives us the path.
+        const ref = (p as any).ref;
+        // The path of a subcollection doc is customers/{customerId}/payments/{paymentId}
+        const customerId = ref?.parent?.parent?.id || 'unknown';
+        
+        return {
+          ...p,
+          customerId: customerId,
+          customerName: customerMap.get(customerId) || 'Unknown Customer',
+        }
+    });
+    
+    // Sort before filtering for consistent order
+    const sorted = paymentsWithDetails.sort((a,b) => (b.date?.seconds ?? 0) - (a.date?.seconds ?? 0));
 
-      const term = searchTerm.toLowerCase();
-      return paymentsWithDetails.filter(p => 
-        p.customerName.toLowerCase().includes(term) ||
-        p.amount.toString().includes(term)
-      ).sort((a,b) => (b.date?.seconds ?? 0) - (a.date?.seconds ?? 0));
+    if (!searchTerm) return sorted;
 
-  }, [payments, customerMap, searchTerm]);
+    const term = searchTerm.toLowerCase();
+    return sorted.filter(p => 
+      p.customerName.toLowerCase().includes(term) ||
+      p.amount.toString().includes(term)
+    );
+
+}, [payments, customerMap, searchTerm]);
 
   const handleGoToCustomer = () => {
     if (selectedCustomerId) {

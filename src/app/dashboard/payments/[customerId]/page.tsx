@@ -321,7 +321,7 @@ export default function CustomerPaymentsPage() {
   if (!customer) {
     return (
       <div className="text-center">
-        <p className="mb-4">Customer not found, or they have no invoices.</p>
+        <p className="mb-4">Customer not found. Please go back and select a valid customer.</p>
         <Button onClick={() => router.push('/dashboard/payments')}>
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Payments
