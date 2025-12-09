@@ -6,6 +6,7 @@ import { useCollection, useFirestore, useMemoFirebase, useDoc } from '@/firebase
 import { collection, doc, setDoc, updateDoc, collectionGroup, Query, DocumentData } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { useAuth } from './auth-context';
 
 export interface BusinessDetails {
   name: string;
@@ -52,23 +53,24 @@ const InvoicesContext = createContext<InvoicesContextType | undefined>(undefined
 export function InvoicesProvider({ children }: { children: ReactNode }) {
   const firestore = useFirestore();
   const { toast } = useToast();
+  const { user, loading: authLoading } = useAuth();
 
-  // Fetch Business Details from Firestore
+  // Fetch Business Details from Firestore - only if user is logged in
   const businessSettingsRef = useMemoFirebase(() => {
-      if (!firestore) return null;
+      if (!firestore || !user) return null;
       // There's only one settings doc, with a known ID.
       return doc(firestore, 'business_settings', 'shop_details');
-  }, [firestore]);
+  }, [firestore, user]);
   
   const { data: businessDetailsData, isLoading: businessLoading } = useDoc<BusinessDetails>(businessSettingsRef);
   const businessDetails = businessDetailsData || defaultBusinessDetails;
   
   
-  // Fetch All Invoices using a Collection Group query
+  // Fetch All Invoices using a Collection Group query - only if user is logged in
    const invoicesQuery = useMemoFirebase(() => {
-    if(!firestore) return null;
+    if(!firestore || !user) return null;
     return collectionGroup(firestore, 'invoices') as Query<DocumentData>;
-   }, [firestore]);
+   }, [firestore, user]);
 
    const { data: rawInvoices, isLoading: invoicesLoading, error } = useCollection<Invoice>(invoicesQuery);
 
@@ -158,8 +160,10 @@ export function InvoicesProvider({ children }: { children: ReactNode }) {
       updateDocumentNonBlocking(businessSettingsRef, details);
   }, [businessSettingsRef]);
 
+  const loading = authLoading || (!!user && (invoicesLoading || businessLoading));
+
   return (
-    <InvoicesContext.Provider value={{ invoices, addInvoice, updateInvoice, deleteInvoice, recoverInvoice, getInvoice, generateInvoiceNumber, loading: invoicesLoading || businessLoading, businessDetails, updateBusinessDetails }}>
+    <InvoicesContext.Provider value={{ invoices, addInvoice, updateInvoice, deleteInvoice, recoverInvoice, getInvoice, generateInvoiceNumber, loading, businessDetails, updateBusinessDetails }}>
       {children}
     </InvoicesContext.Provider>
   );

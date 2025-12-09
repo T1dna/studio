@@ -34,6 +34,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, doc, addDoc, updateDoc, deleteDoc, CollectionReference, DocumentData } from 'firebase/firestore';
 import { setDocumentNonBlocking, addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { useAuth } from '@/contexts/auth-context';
 
 type Customer = {
   id: string;
@@ -48,13 +49,14 @@ type Customer = {
 export default function CustomersPage() {
   const { toast } = useToast();
   const firestore = useFirestore();
+  const { user, loading: authLoading } = useAuth();
 
   const customersRef = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user) return null;
     return collection(firestore, 'customers') as CollectionReference<DocumentData>;
-  }, [firestore]);
+  }, [firestore, user]);
 
-  const { data: customers, isLoading: loading } = useCollection<Omit<Customer, 'id'>>(customersRef);
+  const { data: customers, isLoading: customersLoading } = useCollection<Omit<Customer, 'id'>>(customersRef);
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
@@ -124,6 +126,8 @@ export default function CustomersPage() {
       (customer.gstin && customer.gstin.toLowerCase().includes(searchTermLower))
     );
   }) || [];
+
+  const loading = authLoading || customersLoading;
 
   return (
     <Card>
@@ -250,5 +254,3 @@ export default function CustomersPage() {
     </Card>
   );
 }
-
-    
