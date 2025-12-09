@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2, PlusCircle, Trash2, Edit, MoreHorizontal } from 'lucide-react';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, doc, CollectionReference, DocumentData, addDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter as DialogFooterComponent, DialogTrigger } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -103,7 +103,8 @@ const calculateInterest = (invoice: Invoice, payments: Payment[]): { principalPa
     const totalCompoundInterest = outstandingPrincipal * (Math.pow(1 + rate, periods) - 1);
     const rawInterestDue = totalCompoundInterest - interestPaid;
     
-    return { principalPaid, interestPaid, interestDue: Math.max(0, parseFloat(rawInterestDue.toFixed(2))) };
+    const finalInterestDue = Math.max(0, rawInterestDue);
+    return { principalPaid, interestPaid, interestDue: parseFloat(finalInterestDue.toFixed(2)) };
 }
 
 
@@ -122,11 +123,11 @@ export default function CustomerPaymentsPage() {
   const [paymentAmount, setPaymentAmount] = useState<string>("0");
   const [allocations, setAllocations] = useState<{[invoiceId: string]: { principal: string, interest: string } }>({});
 
-  const customer = useMemo(() => {
-    if (!invoices || !customerId) return null;
-    const invoiceForCustomer = invoices.find(inv => inv.customerId === customerId);
-    return invoiceForCustomer ? (invoiceForCustomer.customer as Customer) : null;
-  }, [invoices, customerId]);
+  const customerRef = useMemoFirebase(() => {
+      if (!firestore || !customerId) return null;
+      return doc(firestore, 'customers', customerId) as DocumentReference<DocumentData>;
+  }, [firestore, customerId]);
+  const { data: customer, isLoading: customerLoading } = useDoc<Customer>(customerRef);
   
   const paymentsRef = useMemoFirebase(() => {
     if (!firestore || !customerId) return null;
@@ -306,7 +307,7 @@ export default function CustomerPaymentsPage() {
     }
   }
 
-  const isLoading = invoicesLoading || paymentsLoading;
+  const isLoading = invoicesLoading || paymentsLoading || customerLoading;
 
   if (isLoading) {
     return (
